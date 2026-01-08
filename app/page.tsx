@@ -4,9 +4,13 @@ import { useState } from "react";
 
 type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
 type OutputFormat = "png" | "jpg" | "webp";
+type ModelChoice = "ideogram" | "openai";
 
 export default function Home() {
   const [prompt, setPrompt] = useState("");
+
+  // NEW: model selector
+  const [model, setModel] = useState<ModelChoice>("ideogram");
 
   // Controls
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1");
@@ -36,7 +40,8 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt,
-          aspectRatio, // ✅ camelCase (server will map to Ideogram input)
+          model, // ✅ ideogram | openai
+          aspectRatio,
           outputFormat,
           seed: seedNumber,
           negativePrompt,
@@ -57,6 +62,24 @@ export default function Home() {
       setLoading(false);
     }
   };
+
+  const selectStyle = {
+    width: "100%",
+    padding: 12,
+    borderRadius: 12,
+    border: "1px solid #333",
+    background: "#fff",
+    color: "#000", // ✅ fixes invisible text
+  } as const;
+
+  const inputStyle = {
+    width: "100%",
+    padding: 12,
+    borderRadius: 12,
+    border: "1px solid #333",
+    background: "#fff",
+    color: "#000", // ✅ fixes invisible text
+  } as const;
 
   return (
     <main style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
@@ -82,6 +105,22 @@ export default function Home() {
 
         {/* Controls */}
         <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+          {/* NEW: Model selector */}
+          <div style={{ textAlign: "left" }}>
+            <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>
+              Model
+            </div>
+            <select
+              value={model}
+              onChange={(e) => setModel(e.target.value as ModelChoice)}
+              disabled={loading}
+              style={selectStyle}
+            >
+              <option value="ideogram">Ideogram (Fast & Cheap)</option>
+              <option value="openai">OpenAI (Low – Cheapest)</option>
+            </select>
+          </div>
+
           <div
             style={{
               display: "grid",
@@ -97,13 +136,7 @@ export default function Home() {
                 value={aspectRatio}
                 onChange={(e) => setAspectRatio(e.target.value as AspectRatio)}
                 disabled={loading}
-                style={{
-                  width: "100%",
-                  padding: 12,
-                  borderRadius: 12,
-                  border: "1px solid #333",
-                  background: "#fff",
-                }}
+                style={selectStyle}
               >
                 <option value="1:1">1:1 (Square)</option>
                 <option value="4:5">4:5 (Instagram)</option>
@@ -118,15 +151,11 @@ export default function Home() {
               </div>
               <select
                 value={outputFormat}
-                onChange={(e) => setOutputFormat(e.target.value as OutputFormat)}
+                onChange={(e) =>
+                  setOutputFormat(e.target.value as OutputFormat)
+                }
                 disabled={loading}
-                style={{
-                  width: "100%",
-                  padding: 12,
-                  borderRadius: 12,
-                  border: "1px solid #333",
-                  background: "#fff",
-                }}
+                style={selectStyle}
               >
                 <option value="png">PNG</option>
                 <option value="jpg">JPG</option>
@@ -144,13 +173,7 @@ export default function Home() {
                 placeholder="12345"
                 disabled={loading}
                 inputMode="numeric"
-                style={{
-                  width: "100%",
-                  padding: 12,
-                  borderRadius: 12,
-                  border: "1px solid #333",
-                  background: "#fff",
-                }}
+                style={inputStyle}
               />
             </div>
           </div>
@@ -164,13 +187,7 @@ export default function Home() {
               onChange={(e) => setNegativePrompt(e.target.value)}
               placeholder="blurry, low quality, deformed, extra fingers"
               disabled={loading}
-              style={{
-                width: "100%",
-                padding: 12,
-                borderRadius: 12,
-                border: "1px solid #333",
-                background: "#fff",
-              }}
+              style={inputStyle}
             />
           </div>
         </div>
