@@ -59,31 +59,74 @@ function extractImageUrl(output: any): string | null {
   return null;
 }
 
+const ALLOWED_RATIOS = new Set(["1:1", "16:9", "9:16", "4:5"]);
+const ALLOWED_FORMATS = new Set(["png", "jpg", "webp"]);
+
 export async function POST(req: Request) {
   try {
-    const { prompt } = await req.json();
+    const body = await req.json();
+
+    const prompt = body?.prompt;
+
+    // ✅ Accept BOTH naming styles:
+    // New UI (camelCase): aspectRatio/outputFormat/negativePrompt
+    // Old style (snake_case): aspect_ratio/output_format/negative_prompt
+    const aspectRatioRaw = body?.aspectRatio ?? body?.aspect_ratio ?? "1:1";
+    const outputFormatRaw = body?.outputFormat ?? body?.output_format ?? "png";
+    const negativePromptRaw =
+      body?.negativePrompt ?? body?.negative_prompt ?? "";
+    const seedRaw = body?.seed;
 
     if (!prompt || typeof prompt !== "string") {
       return NextResponse.json({ error: "Missing prompt" }, { status: 400 });
     }
 
+    // ✅ Validate / normalize
+    const aspect_ratio =
+      typeof aspectRatioRaw === "string" && ALLOWED_RATIOS.has(aspectRatioRaw)
+        ? aspectRatioRaw
+        : "1:1";
+
+    const output_format =
+      typeof outputFormatRaw === "string" &&
+      ALLOWED_FORMATS.has(outputFormatRaw)
+        ? outputFormatRaw
+        : "png";
+
+    const input: Record<string, any> = {
+      prompt,
+      aspect_ratio,
+      output_format,
+    };
+
+    // ✅ Seed: allow number OR numeric string
+    if (typeof seedRaw === "number" && Number.isFinite(seedRaw)) {
+      input.seed = seedRaw;
+    } else if (typeof seedRaw === "string" && seedRaw.trim()) {
+      const n = Number(seedRaw);
+      if (Number.isFinite(n)) input.seed = n;
+    }
+
+    // ✅ Negative prompt
+    if (typeof negativePromptRaw === "string" && negativePromptRaw.trim()) {
+      input.negative_prompt = negativePromptRaw.trim();
+    }
+
     const output = await replicate.run("ideogram-ai/ideogram-v2-turbo", {
-      input: {
-        prompt,
-        aspect_ratio: "1:1",
-        output_format: "png",
-      },
+      input,
     });
+
+    console.log("IDEOGRAM INPUT:", input);
 
     const url = extractImageUrl(output);
 
     if (!url) {
-      // Helpful debug info (keep this while testing)
-      console.log("RAW OUTPUT TYPE:", Object.prototype.toString.call(output));
-      console.log("RAW OUTPUT:", output);
-
       return NextResponse.json(
-        { error: "No image URL returned from model output.", raw: output },
+        {
+          error:
+            "No image URL returned from Ideogram output (unexpected format).",
+          raw: output,
+        },
         { status: 500 }
       );
     }
