@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import Replicate from "replicate";
+import OpenAI from "openai";
 
 export const runtime = "nodejs";
 
 const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN!,
+});
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 // Handles Replicate outputs that are:
@@ -59,79 +64,132 @@ function extractImageUrl(output: any): string | null {
   return null;
 }
 
+const ALLOWED_MODELS = new Set(["ideogram", "openai"]);
 const ALLOWED_RATIOS = new Set(["1:1", "16:9", "9:16", "4:5"]);
 const ALLOWED_FORMATS = new Set(["png", "jpg", "webp"]);
 
+function mapAspectRatioToOpenAISize(aspect_ratio: string) {
+  // OpenAI image sizes:
+  // - 1024x1024 (square)
+  // - 1536x1024 (landscape)
+  // - 1024x1536 (portrait)
+  if (aspect_ratio === "16:9") return "1536x1024";
+  if (aspect_ratio === "9:16") return "1024x1536";
+  if (aspect_ratio === "4:5") return "1024x1536"; // closest portrait
+  return "1024x1024";
+}
+
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    // ✅ FormData (supports file uploads)
+    const form = await req.formData();
 
-    const prompt = body?.prompt;
-
-    // ✅ Accept BOTH naming styles:
-    // New UI (camelCase): aspectRatio/outputFormat/negativePrompt
-    // Old style (snake_case): aspect_ratio/output_format/negative_prompt
-    const aspectRatioRaw = body?.aspectRatio ?? body?.aspect_ratio ?? "1:1";
-    const outputFormatRaw = body?.outputFormat ?? body?.output_format ?? "png";
-    const negativePromptRaw =
-      body?.negativePrompt ?? body?.negative_prompt ?? "";
-    const seedRaw = body?.seed;
-
+    const prompt = form.get("prompt");
     if (!prompt || typeof prompt !== "string") {
       return NextResponse.json({ error: "Missing prompt" }, { status: 400 });
     }
 
-    // ✅ Validate / normalize
+    const modelRaw = (form.get("model") as string) ?? "ideogram";
+    const model =
+      typeof modelRaw === "string" && ALLOWED_MODELS.has(modelRaw)
+        ? modelRaw
+        : "ideogram";
+
+    const aspectRatioRaw = (form.get("aspectRatio") as string) ?? "1:1";
     const aspect_ratio =
       typeof aspectRatioRaw === "string" && ALLOWED_RATIOS.has(aspectRatioRaw)
         ? aspectRatioRaw
         : "1:1";
 
+    const outputFormatRaw = (form.get("outputFormat") as string) ?? "png";
     const output_format =
-      typeof outputFormatRaw === "string" &&
-      ALLOWED_FORMATS.has(outputFormatRaw)
+      typeof outputFormatRaw === "string" && ALLOWED_FORMATS.has(outputFormatRaw)
         ? outputFormatRaw
         : "png";
 
-    const input: Record<string, any> = {
+    const seedRaw = form.get("seed") as string | null;
+    const seed =
+      seedRaw && seedRaw.trim() && Number.isFinite(Number(seedRaw))
+        ? Number(seedRaw)
+        : undefined;
+
+    const negative_prompt = ((form.get("negativePrompt") as string) ?? "").trim();
+
+    // Uploaded files come in under "images" from the frontend
+    const images = form.getAll("images") as File[];
+
+    // -----------------------------
+    // ✅ IDEOGRAM (supports input_images)
+    // -----------------------------
+    if (model === "ideogram") {
+      const input: Record<string, any> = {
+        prompt,
+        aspect_ratio,
+        output_format,
+      };
+
+      if (typeof seed === "number") input.seed = seed;
+      if (negative_prompt) input.negative_prompt = negative_prompt;
+
+      // ✅ Add uploaded images (if any)
+      if (images && images.length > 0) {
+        input.input_images = images; // IMPORTANT: matches Replicate field name
+      }
+
+      console.log("IDEOGRAM INPUT:", {
+        ...input,
+        input_images: images?.length ? `[${images.length} file(s)]` : undefined,
+      });
+
+      const output = await replicate.run("ideogram-ai/ideogram-v2-turbo", {
+        input,
+      });
+
+      const url = extractImageUrl(output);
+
+      if (!url) {
+        return NextResponse.json(
+          {
+            error: "No image URL returned from Ideogram output (unexpected format).",
+            raw: output,
+          },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({ url, provider: "ideogram" });
+    }
+
+    // -----------------------------
+    // ✅ OPENAI (LOW ONLY - cheapest)
+    // -----------------------------
+    const openaiOutputFormat = output_format === "jpg" ? "jpeg" : output_format;
+    const size = mapAspectRatioToOpenAISize(aspect_ratio);
+
+    const result = await openai.images.generate({
+      model: "gpt-image-1",
       prompt,
-      aspect_ratio,
-      output_format,
-    };
-
-    // ✅ Seed: allow number OR numeric string
-    if (typeof seedRaw === "number" && Number.isFinite(seedRaw)) {
-      input.seed = seedRaw;
-    } else if (typeof seedRaw === "string" && seedRaw.trim()) {
-      const n = Number(seedRaw);
-      if (Number.isFinite(n)) input.seed = n;
-    }
-
-    // ✅ Negative prompt
-    if (typeof negativePromptRaw === "string" && negativePromptRaw.trim()) {
-      input.negative_prompt = negativePromptRaw.trim();
-    }
-
-    const output = await replicate.run("ideogram-ai/ideogram-v2-turbo", {
-      input,
+      quality: "low", // 🔒 LOCKED CHEAPEST
+      size,
+      output_format: openaiOutputFormat as any,
     });
 
-    console.log("IDEOGRAM INPUT:", input);
-
-    const url = extractImageUrl(output);
-
-    if (!url) {
+    const b64 = (result as any)?.data?.[0]?.b64_json;
+    if (!b64 || typeof b64 !== "string") {
       return NextResponse.json(
-        {
-          error:
-            "No image URL returned from Ideogram output (unexpected format).",
-          raw: output,
-        },
+        { error: "OpenAI did not return base64 image data.", raw: result },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ url });
+    const mime =
+      openaiOutputFormat === "jpeg"
+        ? "image/jpeg"
+        : `image/${openaiOutputFormat}`;
+
+    const dataUrl = `data:${mime};base64,${b64}`;
+
+    return NextResponse.json({ url: dataUrl, provider: "openai" });
   } catch (err: any) {
     console.error("API ERROR:", err);
     return NextResponse.json(
