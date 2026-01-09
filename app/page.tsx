@@ -1,28 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import React, { useMemo, useState } from "react";
 
 type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
 type OutputFormat = "png" | "jpg" | "webp";
-type ModelChoice = "ideogram" | "openai";
+type ModelChoice = "ideogram" | "openai_replicate";
+
+async function safeJson(res: Response) {
+  const text = await res.text();
+  try {
+    return { ok: res.ok, status: res.status, data: JSON.parse(text), raw: text };
+  } catch {
+    return { ok: res.ok, status: res.status, data: null as any, raw: text };
+  }
+}
 
 export default function Home() {
-  const [prompt, setPrompt] = useState("");
-  const [model, setModel] = useState<ModelChoice>("openai");
+  const [prompt, setPrompt] = useState<string>("");
 
+  const [model, setModel] = useState<ModelChoice>("ideogram");
+
+  // Common controls
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1");
   const [outputFormat, setOutputFormat] = useState<OutputFormat>("png");
 
-  // Ideogram-only controls (we will hide these when OpenAI is selected)
-  const [seed, setSeed] = useState("");
-  const [negativePrompt, setNegativePrompt] = useState("");
+  // Ideogram-only
+  const [seed, setSeed] = useState<string>("");
+  const [negativePrompt, setNegativePrompt] = useState<string>("");
 
-  // ✅ Uploads ONLY for OpenAI
-  const [files, setFiles] = useState<File[]>([]);
+  // OpenAI-only: up to 3 images
+  const [openAiImages, setOpenAiImages] = useState<File[]>([]);
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [url, setUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
+  const [url, setUrl] = useState<string>("");
+
+  const isIdeogram = model === "ideogram";
+  const isOpenAI = model === "openai_replicate";
 
   const selectStyle = {
     width: "100%",
@@ -33,50 +47,117 @@ export default function Home() {
     color: "#000",
   } as const;
 
-  const inputStyle = {
-    width: "100%",
-    padding: 12,
-    borderRadius: 12,
-    border: "1px solid #333",
-    background: "#fff",
-    color: "#000",
-  } as const;
+  const inputStyle = selectStyle;
+
+  // IMPORTANT:
+  // - "multiple" allows selecting multiple at once
+  // - we ALSO allow selecting more later without replacing by merging into state
+  // - we clear input value so re-selecting the same file triggers onChange
+  const onPickOpenAiImages = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const list = Array.from(e.target.files ?? []);
+    if (!list.length) return;
+
+    setOpenAiImages((prev) => {
+      const merged = [...prev, ...list];
+
+      // de-dupe
+      const deduped: File[] = [];
+      const seen = new Set<string>();
+      for (const f of merged) {
+        const key = `${f.name}-${f.size}-${f.lastModified}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          deduped.push(f);
+        }
+      }
+      return deduped.slice(0, 3);
+    });
+
+    e.target.value = "";
+  };
+
+  const removeOpenAiImage = (index: number) => {
+    setOpenAiImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const canGenerate = useMemo(() => {
+    if (loading) return false;
+    if (!prompt.trim()) return false;
+    if (isOpenAI && openAiImages.length === 0) return false;
+    return true;
+  }, [loading, prompt, isOpenAI, openAiImages.length]);
 
   const generate = async () => {
     setLoading(true);
-    setError(null);
-    setUrl(null);
+    setError("");
+    setUrl("");
 
     try {
-      const form = new FormData();
-      form.append("prompt", prompt);
-      form.append("model", model);
-      form.append("aspectRatio", aspectRatio);
-      form.append("outputFormat", outputFormat);
+      if (isIdeogram) {
+        const trimmedSeed = (seed ?? "").trim();
+        const seedNumber =
+          trimmedSeed && !Number.isNaN(Number(trimmedSeed))
+            ? Number(trimmedSeed)
+            : undefined;
 
-      // ✅ Uploads ONLY when OpenAI is selected
-      if (model === "openai") {
-        for (const file of files) {
-          form.append("images", file);
+        const res = await fetch("/api/realify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt,
+            aspectRatio,
+            outputFormat,
+            seed: seedNumber,
+            negativePrompt,
+          }),
+        });
+
+        const parsed = await safeJson(res);
+        if (!parsed.ok) {
+          throw new Error(
+            parsed.data?.error ||
+              `Ideogram failed (${parsed.status}). ${parsed.raw?.slice(0, 200)}`
+          );
         }
+
+        const imageUrl = parsed.data?.url;
+        if (!imageUrl || typeof imageUrl !== "string") {
+          throw new Error("Ideogram API did not return a valid image URL");
+        }
+
+        setUrl(imageUrl);
+      } else {
+        // OPENAI via REPLICATE (FormData)
+        const fd = new FormData();
+        fd.append("prompt", prompt);
+        fd.append("aspectRatio", aspectRatio);
+        fd.append("outputFormat", outputFormat);
+
+        openAiImages.slice(0, 3).forEach((file) => fd.append("images", file));
+
+        // MUST match the folder: app/api/realify-openai/route.ts
+        const res = await fetch("/api/realify-openai", {
+          method: "POST",
+          body: fd,
+        });
+
+        const parsed = await safeJson(res);
+        if (!parsed.ok) {
+          throw new Error(
+            parsed.data?.error ||
+              `OpenAI route failed (${parsed.status}). ${parsed.raw?.slice(0, 300)}`
+          );
+        }
+
+        const imageUrl = parsed.data?.url;
+        if (!imageUrl || typeof imageUrl !== "string") {
+          throw new Error("OpenAI API did not return a valid image URL");
+        }
+
+        setUrl(imageUrl);
       }
-
-      // (kept for compatibility, but not used when model=openai)
-      const trimmedSeed = seed.trim();
-      if (model === "ideogram" && trimmedSeed) form.append("seed", trimmedSeed);
-      if (model === "ideogram" && negativePrompt.trim())
-        form.append("negativePrompt", negativePrompt.trim());
-
-      const res = await fetch("/api/realify", { method: "POST", body: form });
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data?.error || "Generation failed");
-      if (!data.url || typeof data.url !== "string")
-        throw new Error("API did not return a valid image URL");
-
-      setUrl(data.url);
     } catch (e: any) {
-      setError(e.message);
+      setError(e?.message || "Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -84,14 +165,18 @@ export default function Home() {
 
   return (
     <main style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
-      <div style={{ width: "min(760px, 92vw)", textAlign: "center" }}>
+      <div style={{ width: "min(900px, 92vw)", textAlign: "center" }}>
         <h1 style={{ fontSize: 56, margin: 0 }}>Realify</h1>
         <p style={{ opacity: 0.75 }}>Type a prompt and generate an image</p>
 
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Example: Make this image realistic, cinematic lighting..."
+          placeholder={
+            isOpenAI
+              ? "Example: put these friends together, keep faces/outfits, change background to an old Mexican ranch"
+              : "Example: A realistic portrait photo of a ninja in a forest, cinematic lighting, 85mm lens"
+          }
           rows={4}
           style={{
             width: "100%",
@@ -104,8 +189,7 @@ export default function Home() {
           }}
         />
 
-        <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-          {/* Model */}
+        <div style={{ display: "grid", gap: 12, marginTop: 14 }}>
           <div style={{ textAlign: "left" }}>
             <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>
               Model
@@ -116,16 +200,15 @@ export default function Home() {
               disabled={loading}
               style={selectStyle}
             >
-              <option value="openai">OpenAI (Low – Cheapest)</option>
               <option value="ideogram">Ideogram (Fast & Cheap)</option>
+              <option value="openai_replicate">OpenAI (Low — Cheapest)</option>
             </select>
           </div>
 
-          {/* Aspect Ratio + Format */}
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr",
+              gridTemplateColumns: "1fr 1fr 1fr",
               gap: 10,
             }}
           >
@@ -152,9 +235,7 @@ export default function Home() {
               </div>
               <select
                 value={outputFormat}
-                onChange={(e) =>
-                  setOutputFormat(e.target.value as OutputFormat)
-                }
+                onChange={(e) => setOutputFormat(e.target.value as OutputFormat)}
                 disabled={loading}
                 style={selectStyle}
               >
@@ -163,79 +244,136 @@ export default function Home() {
                 <option value="webp">WEBP</option>
               </select>
             </div>
+
+            {isIdeogram ? (
+              <div style={{ textAlign: "left" }}>
+                <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>
+                  Seed (optional)
+                </div>
+                <input
+                  value={seed ?? ""}
+                  onChange={(e) => setSeed(e.target.value)}
+                  placeholder="12345"
+                  disabled={loading}
+                  inputMode="numeric"
+                  style={inputStyle}
+                />
+              </div>
+            ) : (
+              <div style={{ textAlign: "left" }}>
+                <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>
+                  Upload images (OpenAI) — up to 3
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={onPickOpenAiImages}
+                  disabled={loading}
+                  style={{ width: "100%" }}
+                />
+              </div>
+            )}
           </div>
 
-          {/* ✅ OpenAI upload section */}
-          {model === "openai" ? (
+          {isIdeogram && (
             <div style={{ textAlign: "left" }}>
               <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>
-                Upload image(s) (OpenAI)
+                Negative Prompt (optional)
               </div>
               <input
-                type="file"
-                accept="image/*"
-                multiple
+                value={negativePrompt ?? ""}
+                onChange={(e) => setNegativePrompt(e.target.value)}
+                placeholder="blurry, low quality, deformed, extra fingers"
                 disabled={loading}
-                onChange={(e) => {
-                  const list = Array.from(e.target.files || []);
-                  setFiles(list);
-                }}
-                style={{ color: "#fff" }}
+                style={inputStyle}
               />
-              {files.length > 0 && (
-                <div style={{ fontSize: 12, opacity: 0.75, marginTop: 6 }}>
-                  Selected: {files.map((f) => f.name).join(", ")}
+            </div>
+          )}
+
+          {isOpenAI && (
+            <div style={{ textAlign: "left" }}>
+              <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 8 }}>
+                Selected images
+              </div>
+
+              {openAiImages.length === 0 ? (
+                <div style={{ opacity: 0.7 }}>No images selected yet.</div>
+              ) : (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {openAiImages.map((f, idx) => (
+                    <div
+                      key={`${f.name}-${f.size}-${f.lastModified}-${idx}`}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "14px 14px",
+                        borderRadius: 14,
+                        background: "#111",
+                        color: "#fff",
+                        border: "1px solid #222",
+                      }}
+                    >
+                      <div
+                        style={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          maxWidth: "70%",
+                        }}
+                        title={f.name}
+                      >
+                        {idx + 1}. {f.name}
+                      </div>
+                      <button
+                        onClick={() => removeOpenAiImage(idx)}
+                        disabled={loading}
+                        style={{
+                          padding: "8px 12px",
+                          borderRadius: 999,
+                          border: "1px solid #333",
+                          background: "#1f1f1f",
+                          color: "#fff",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
-              <div style={{ fontSize: 12, opacity: 0.6, marginTop: 6 }}>
-                Tip: Upload 2 images + prompt: “put both characters together in
-                one realistic photo”.
+
+              <div style={{ marginTop: 10, fontSize: 12, opacity: 0.75 }}>
+                Tip: upload 2–3 images + prompt like “put them together in one realistic photo”.
               </div>
-            </div>
-          ) : (
-            <div
-              style={{
-                textAlign: "left",
-                fontSize: 12,
-                opacity: 0.8,
-                lineHeight: 1.5,
-                border: "1px solid #333",
-                borderRadius: 12,
-                padding: 12,
-              }}
-            >
-              Ideogram mode: uploads disabled (by design). Prompt-only.
             </div>
           )}
         </div>
 
         <button
           onClick={generate}
-          disabled={!prompt.trim() || loading}
+          disabled={!canGenerate}
           style={{
-            marginTop: 12,
-            padding: "12px 18px",
-            borderRadius: 12,
+            marginTop: 16,
+            padding: "12px 22px",
+            borderRadius: 14,
             border: "1px solid #333",
-            background: loading ? "#222" : "#1f1f1f",
+            background: loading ? "#222" : "#111",
             color: "#fff",
-            cursor: loading ? "not-allowed" : "pointer",
+            cursor: !canGenerate ? "not-allowed" : "pointer",
+            minWidth: 160,
           }}
         >
           {loading ? "Generating..." : "Generate"}
         </button>
 
-        {error && (
-          <p style={{ color: "#ff6b6b", marginTop: 12 }}>{error}</p>
-        )}
+        {error && <p style={{ color: "#ff6b6b", marginTop: 14 }}>{error}</p>}
 
         {url && (
           <div style={{ marginTop: 18 }}>
-            <img
-              src={url}
-              alt="generated"
-              style={{ width: "100%", borderRadius: 18 }}
-            />
+            <img src={url} alt="generated" style={{ width: "100%", borderRadius: 18 }} />
           </div>
         )}
       </div>

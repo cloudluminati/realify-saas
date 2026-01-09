@@ -9,7 +9,9 @@ const replicate = new Replicate({
 
 function extractImageUrl(output: any): string | null {
   if (!output) return null;
+
   if (typeof output?.url === "function") return output.url();
+
   if (Array.isArray(output) && output.length > 0) {
     const first = output[0];
     if (typeof first === "string") return first;
@@ -18,10 +20,13 @@ function extractImageUrl(output: any): string | null {
       return first.url || first.image || first.output || first?.images?.[0]?.url || null;
     }
   }
+
   if (typeof output === "string") return output;
+
   if (output && typeof output === "object") {
     return output.url || output.image || output.output || output?.images?.[0]?.url || null;
   }
+
   return null;
 }
 
@@ -29,45 +34,41 @@ const ALLOWED_RATIOS = new Set(["1:1", "16:9", "9:16", "4:5"]);
 const ALLOWED_FORMATS = new Set(["png", "jpg", "webp"]);
 
 export async function GET() {
-  return NextResponse.json({ ok: true, route: "realify" });
+  return NextResponse.json({ ok: true, route: "realify-openai" });
 }
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const form = await req.formData();
 
-    const prompt = body?.prompt;
-    if (!prompt || typeof prompt !== "string") {
+    const prompt = String(form.get("prompt") || "");
+    if (!prompt.trim()) {
       return NextResponse.json({ error: "Missing prompt" }, { status: 400 });
     }
 
-    const aspectRatioRaw = body?.aspectRatio ?? "1:1";
-    const outputFormatRaw = body?.outputFormat ?? "png";
-    const negativePromptRaw = body?.negativePrompt ?? "";
-    const seedRaw = body?.seed;
+    const aspectRatioRaw = String(form.get("aspectRatio") || "1:1");
+    const outputFormatRaw = String(form.get("outputFormat") || "png");
 
-    const aspect_ratio =
-      typeof aspectRatioRaw === "string" && ALLOWED_RATIOS.has(aspectRatioRaw)
-        ? aspectRatioRaw
-        : "1:1";
+    const aspect_ratio = ALLOWED_RATIOS.has(aspectRatioRaw) ? aspectRatioRaw : "1:1";
+    const output_format = ALLOWED_FORMATS.has(outputFormatRaw) ? outputFormatRaw : "png";
 
-    const output_format =
-      typeof outputFormatRaw === "string" && ALLOWED_FORMATS.has(outputFormatRaw)
-        ? outputFormatRaw
-        : "png";
+    const files = form.getAll("images").filter(Boolean);
+
+    if (files.length < 1) {
+      return NextResponse.json({ error: "Please upload at least 1 image." }, { status: 400 });
+    }
+    if (files.length > 3) {
+      return NextResponse.json({ error: "Max 3 images." }, { status: 400 });
+    }
 
     const input: Record<string, any> = {
       prompt,
       aspect_ratio,
       output_format,
+      input_images: files,
     };
 
-    if (typeof seedRaw === "number" && Number.isFinite(seedRaw)) input.seed = seedRaw;
-    if (typeof negativePromptRaw === "string" && negativePromptRaw.trim()) {
-      input.negative_prompt = negativePromptRaw.trim();
-    }
-
-    const output = await replicate.run("ideogram-ai/ideogram-v2-turbo", { input });
+    const output = await replicate.run("openai/gpt-image-1.5", { input });
 
     const url = extractImageUrl(output);
     if (!url) {
@@ -79,7 +80,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ url });
   } catch (err: any) {
-    console.error("IDEOGRAM ROUTE ERROR:", err);
+    console.error("OPENAI ROUTE ERROR:", err);
     return NextResponse.json({ error: err?.message ?? "Generation failed" }, { status: 500 });
   }
 }
