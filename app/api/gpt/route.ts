@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import Replicate from "replicate";
-import { getSupabaseServer } from "@/app/lib/supabase-server";
+import { supabaseServer } from "@/app/lib/supabase-server";
 
 import {
   canConsume,
@@ -15,17 +15,10 @@ const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN!,
 });
 
-const ALLOWED_RATIOS = new Set([
-  "match_input_image",
+const GPT_ALLOWED_RATIOS = new Set([
   "1:1",
-  "16:9",
-  "9:16",
-  "4:5",
-  "4:3",
   "3:2",
   "2:3",
-  "21:9",
-  "9:21",
 ]);
 
 async function streamToBuffer(stream: ReadableStream): Promise<Buffer> {
@@ -41,10 +34,58 @@ async function streamToBuffer(stream: ReadableStream): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
+const findStream = (v: any): ReadableStream | null => {
+  if (!v) return null;
+  if (v instanceof ReadableStream) return v;
+
+  if (Array.isArray(v)) {
+    for (const i of v) {
+      const found = findStream(i);
+      if (found) return found;
+    }
+  }
+
+  if (typeof v === "object") {
+    for (const k of Object.keys(v)) {
+      const found = findStream(v[k]);
+      if (found) return found;
+    }
+  }
+
+  return null;
+};
+
+const extractBuffer = (v: any): Buffer | null => {
+  if (!v) return null;
+
+  if (typeof v === "string" && v.length > 100) {
+    try {
+      return Buffer.from(v, "base64");
+    } catch {
+      return null;
+    }
+  }
+
+  if (Array.isArray(v)) {
+    for (const i of v) {
+      const found = extractBuffer(i);
+      if (found) return found;
+    }
+  }
+
+  if (typeof v === "object") {
+    for (const k of Object.keys(v)) {
+      const found = extractBuffer(v[k]);
+      if (found) return found;
+    }
+  }
+
+  return null;
+};
+
 export async function POST(req: Request) {
   try {
-    const supabaseServer = await getSupabaseServer();
-
+    // ⭐ AUTH USER
     const {
       data: { user },
     } = await supabaseServer.auth.getUser();
@@ -58,14 +99,14 @@ export async function POST(req: Request) {
 
     const user_id = user.id;
 
-    // ⭐ FIX: allow active OR canceling subscriptions
+    // ⭐ CHECK ACTIVE SUBSCRIPTION
     const { data: sub } = await supabaseServer
       .from("subscriptions")
       .select("status")
       .eq("user_id", user_id)
-      .in("status", ["active", "canceling"])
+      .eq("status", "active")
       .limit(1)
-      .maybeSingle();
+      .single();
 
     if (!sub) {
       return NextResponse.json(
@@ -74,16 +115,10 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!(await canConsume(UNIT_COSTS.nano))) {
-      return NextResponse.json(
-        { error: "limit_reached" },
-        { status: 403 }
-      );
-    }
-
     const formData = await req.formData();
     const prompt = formData.get("prompt");
     const aspectRatioRaw = formData.get("aspectRatio");
+    const qualityRaw = formData.get("quality");
 
     if (!prompt || typeof prompt !== "string") {
       return NextResponse.json(
@@ -92,73 +127,63 @@ export async function POST(req: Request) {
       );
     }
 
+    const quality =
+      qualityRaw === "low" ||
+      qualityRaw === "medium" ||
+      qualityRaw === "high" ||
+      qualityRaw === "auto"
+        ? qualityRaw
+        : "auto";
+
+    const cost = UNIT_COSTS.gpt[quality];
+
+    // ⭐ CREDIT CHECK
+    if (!(await canConsume(cost))) {
+      return NextResponse.json(
+        { error: "limit_reached" },
+        { status: 403 }
+      );
+    }
+
+    const images = formData
+      .getAll("images")
+      .filter((f): f is File => f instanceof File);
+
     const aspect_ratio =
-      typeof aspectRatioRaw === "string" &&
-      ALLOWED_RATIOS.has(aspectRatioRaw.trim())
-        ? aspectRatioRaw.trim()
-        : "match_input_image";
+      GPT_ALLOWED_RATIOS.has(String(aspectRatioRaw))
+        ? String(aspectRatioRaw)
+        : "1:1";
 
     const input: Record<string, any> = {
       prompt,
-      output_format: "png",
       aspect_ratio,
+      output_format: "png",
+      quality,
     };
 
-    const imageFiles = formData
-      .getAll("images")
-      .filter((f): f is File => f instanceof File)
-      .slice(0, 14);
-
-    if (imageFiles.length > 0) {
-      input.image_input = imageFiles;
+    if (images.length > 0) {
+      input.input_images = images;
     }
 
-    const output = await replicate.run(
-      "google/nano-banana-pro",
-      { input }
-    );
+    const output = await replicate.run("openai/gpt-image-1.5", {
+      input,
+    });
 
+    const stream = findStream(output);
     let buffer: Buffer | null = null;
 
-    if (output instanceof ReadableStream) {
-      buffer = await streamToBuffer(output);
-    }
-
-    const extract = (v: any): Buffer | null => {
-      if (!v) return null;
-
-      if (typeof v === "string" && v.length > 100) {
-        return Buffer.from(v, "base64");
-      }
-
-      if (Array.isArray(v)) {
-        for (const i of v) {
-          const found = extract(i);
-          if (found) return found;
-        }
-      }
-
-      if (typeof v === "object") {
-        for (const k of Object.keys(v)) {
-          const found = extract(v[k]);
-          if (found) return found;
-        }
-      }
-
-      return null;
-    };
-
-    if (!buffer) buffer = extract(output);
+    if (stream) buffer = await streamToBuffer(stream);
+    if (!buffer) buffer = extractBuffer(output);
 
     if (!buffer) {
-      console.error("Replicate returned no image");
+      console.error("GPT OUTPUT:", output);
       return NextResponse.json(
         { error: "generation_failed" },
         { status: 500 }
       );
     }
 
-    const fileName = `nano-${Date.now()}.png`;
+    const fileName = `gpt-${Date.now()}.png`;
 
     const { error: uploadError } =
       await supabaseServer.storage
@@ -182,19 +207,19 @@ export async function POST(req: Request) {
     await supabaseServer.from("image_generation_history").insert({
       user_id,
       prompt,
-      model: "nano",
+      model: "gpt",
       aspect_ratio,
       image_url: data.publicUrl,
     });
 
-    await consume(UNIT_COSTS.nano);
+    await consume(cost);
 
     return NextResponse.json({
       image: data.publicUrl,
     });
 
   } catch (err: any) {
-    console.error("Nano generation error:", err);
+    console.error("GPT ERROR:", err);
 
     if (
       err?.message?.includes("E003") ||

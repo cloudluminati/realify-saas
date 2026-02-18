@@ -1,382 +1,294 @@
-"use client";
+'use client';
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useState } from 'react';
+import { supabase } from '@/app/lib/supabase';
 
-type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
-type OutputFormat = "png" | "jpg" | "webp";
-type ModelChoice = "ideogram" | "openai_replicate";
+type ModelChoice = 'nano' | 'gpt';
+type QualityChoice = 'auto' | 'low' | 'medium' | 'high';
 
-async function safeJson(res: Response) {
-  const text = await res.text();
-  try {
-    return { ok: res.ok, status: res.status, data: JSON.parse(text), raw: text };
-  } catch {
-    return { ok: res.ok, status: res.status, data: null as any, raw: text };
+const NANO_RATIOS = [
+  'match_input_image',
+  '1:1',
+  '2:3',
+  '3:2',
+  '3:4',
+  '4:3',
+  '4:5',
+  '5:4',
+  '9:16',
+  '16:9',
+  '21:9',
+];
+
+const GPT_RATIOS = ['1:1', '3:2', '2:3'];
+
+export default function Page() {
+  const [user, setUser] = useState<any>(null);
+  const [hasSubscription, setHasSubscription] = useState<boolean | null>(null);
+
+  const [model, setModel] = useState<ModelChoice>('nano');
+  const [quality, setQuality] = useState<QualityChoice>('auto');
+  const [prompt, setPrompt] = useState('');
+  const [aspectRatio, setAspectRatio] = useState('1:1');
+  const [images, setImages] = useState<File[]>([]);
+  const [result, setResult] = useState<string | null>(null);
+  const [gallery, setGallery] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  async function checkAuth() {
+    const { data: { session } } = await supabase.auth.getSession();
+    setUser(session?.user ?? null);
   }
-}
 
-export default function Home() {
-  const [prompt, setPrompt] = useState<string>("");
-
-  const [model, setModel] = useState<ModelChoice>("ideogram");
-
-  // Common controls
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1");
-  const [outputFormat, setOutputFormat] = useState<OutputFormat>("png");
-
-  // Ideogram-only
-  const [seed, setSeed] = useState<string>("");
-  const [negativePrompt, setNegativePrompt] = useState<string>("");
-
-  // OpenAI-only: up to 3 images
-  const [openAiImages, setOpenAiImages] = useState<File[]>([]);
-
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string>("");
-  const [url, setUrl] = useState<string>("");
-
-  const isIdeogram = model === "ideogram";
-  const isOpenAI = model === "openai_replicate";
-
-  const selectStyle = {
-    width: "100%",
-    padding: 12,
-    borderRadius: 12,
-    border: "1px solid #333",
-    background: "#fff",
-    color: "#000",
-  } as const;
-
-  const inputStyle = selectStyle;
-
-  // IMPORTANT:
-  // - "multiple" allows selecting multiple at once
-  // - we ALSO allow selecting more later without replacing by merging into state
-  // - we clear input value so re-selecting the same file triggers onChange
-  const onPickOpenAiImages = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const list = Array.from(e.target.files ?? []);
-    if (!list.length) return;
-
-    setOpenAiImages((prev) => {
-      const merged = [...prev, ...list];
-
-      // de-dupe
-      const deduped: File[] = [];
-      const seen = new Set<string>();
-      for (const f of merged) {
-        const key = `${f.name}-${f.size}-${f.lastModified}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          deduped.push(f);
-        }
-      }
-      return deduped.slice(0, 3);
+  async function login() {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
     });
+  }
 
-    e.target.value = "";
-  };
+  async function logout() {
+    await supabase.auth.signOut();
+    location.reload();
+  }
 
-  const removeOpenAiImage = (index: number) => {
-    setOpenAiImages((prev) => prev.filter((_, i) => i !== index));
-  };
+  useEffect(() => {
+    checkAuth();
+    const { data: listener } = supabase.auth.onAuthStateChange(() => {
+      checkAuth();
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
 
-  const canGenerate = useMemo(() => {
-    if (loading) return false;
-    if (!prompt.trim()) return false;
-    if (isOpenAI && openAiImages.length === 0) return false;
-    return true;
-  }, [loading, prompt, isOpenAI, openAiImages.length]);
+  async function checkSubscription() {
+    try {
+      const res = await fetch('/api/subscription-status', {
+        cache: 'no-store',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      setHasSubscription(!!data.active);
+    } catch {
+      setHasSubscription(false);
+    }
+  }
 
-  const generate = async () => {
+  async function upgrade(plan: 'starter' | 'creator') {
+    try {
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ plan }),
+      });
+
+      const data = await res.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error || 'Checkout failed.');
+      }
+    } catch {
+      alert('Checkout error.');
+    }
+  }
+
+  async function manageSubscription() {
+    try {
+      const res = await fetch('/api/stripe/portal', {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      const data = await res.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error || 'Unable to open billing portal.');
+      }
+    } catch {
+      alert('Portal error.');
+    }
+  }
+
+  async function fetchGallery() {
+    try {
+      const res = await fetch('/api/gallery', {
+        cache: 'no-store',
+        credentials: 'include',
+      });
+
+      const data = await res.json();
+      if (data?.images?.length) setGallery(data.images);
+    } catch {}
+  }
+
+  useEffect(() => {
+    checkSubscription();
+    fetchGallery();
+  }, [user]);
+
+  function handleImageUpload(files: FileList | null) {
+    if (!files) return;
+    setImages(Array.from(files));
+  }
+
+  async function generate() {
+    if (!user) return alert('Login required.');
+    if (!hasSubscription) return alert('Subscription required.');
+    if (!prompt.trim() || loading) return;
+
     setLoading(true);
-    setError("");
-    setUrl("");
 
     try {
-      if (isIdeogram) {
-        const trimmedSeed = (seed ?? "").trim();
-        const seedNumber =
-          trimmedSeed && !Number.isNaN(Number(trimmedSeed))
-            ? Number(trimmedSeed)
-            : undefined;
+      const formData = new FormData();
+      formData.append('prompt', prompt);
+      formData.append('aspectRatio', aspectRatio);
+      formData.append('quality', quality);
+      images.forEach(img => formData.append('images', img));
 
-        const res = await fetch("/api/realify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt,
-            aspectRatio,
-            outputFormat,
-            seed: seedNumber,
-            negativePrompt,
-          }),
-        });
+      const endpoint = model === 'nano' ? '/api/realify' : '/api/gpt';
 
-        const parsed = await safeJson(res);
-        if (!parsed.ok) {
-          throw new Error(
-            parsed.data?.error ||
-              `Ideogram failed (${parsed.status}). ${parsed.raw?.slice(0, 200)}`
-          );
-        }
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
 
-        const imageUrl = parsed.data?.url;
-        if (!imageUrl || typeof imageUrl !== "string") {
-          throw new Error("Ideogram API did not return a valid image URL");
-        }
+      const data = await res.json();
 
-        setUrl(imageUrl);
-      } else {
-        // OPENAI via REPLICATE (FormData)
-        const fd = new FormData();
-        fd.append("prompt", prompt);
-        fd.append("aspectRatio", aspectRatio);
-        fd.append("outputFormat", outputFormat);
-
-        openAiImages.slice(0, 3).forEach((file) => fd.append("images", file));
-
-        // MUST match the folder: app/api/realify-openai/route.ts
-        const res = await fetch("/api/realify-openai", {
-          method: "POST",
-          body: fd,
-        });
-
-        const parsed = await safeJson(res);
-        if (!parsed.ok) {
-          throw new Error(
-            parsed.data?.error ||
-              `OpenAI route failed (${parsed.status}). ${parsed.raw?.slice(0, 300)}`
-          );
-        }
-
-        const imageUrl = parsed.data?.url;
-        if (!imageUrl || typeof imageUrl !== "string") {
-          throw new Error("OpenAI API did not return a valid image URL");
-        }
-
-        setUrl(imageUrl);
+      if (!res.ok) {
+        if (res.status === 403) return alert(data.error || 'Usage limit reached.');
+        if (res.status === 503) return alert('Service temporarily unavailable.');
+        return alert('Generation failed.');
       }
-    } catch (e: any) {
-      setError(e?.message || "Something went wrong");
+
+      setResult(data.image);
+
+      setGallery(prev => [
+        { image_url: data.image, prompt, created_at: Date.now() },
+        ...prev,
+      ]);
+
+      setTimeout(fetchGallery, 2000);
+    } catch {
+      alert('Network error.');
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  const ratios = model === 'nano' ? NANO_RATIOS : GPT_RATIOS;
 
   return (
-    <main style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
-      <div style={{ width: "min(900px, 92vw)", textAlign: "center" }}>
-        <h1 style={{ fontSize: 56, margin: 0 }}>Realify</h1>
-        <p style={{ opacity: 0.75 }}>Type a prompt and generate an image</p>
+    <main style={{ maxWidth: 900, margin: 'auto', padding: 32 }}>
+      <h1>Realify</h1>
 
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder={
-            isOpenAI
-              ? "Example: put these friends together, keep faces/outfits, change background to an old Mexican ranch"
-              : "Example: A realistic portrait photo of a ninja in a forest, cinematic lighting, 85mm lens"
-          }
-          rows={4}
-          style={{
-            width: "100%",
-            padding: 12,
-            borderRadius: 12,
-            background: "#111",
-            color: "#fff",
-            border: "1px solid #333",
-            marginTop: 12,
-          }}
-        />
+      {!user ? (
+        <button onClick={login}>Login</button>
+      ) : (
+        <button onClick={logout}>Logout</button>
+      )}
 
-        <div style={{ display: "grid", gap: 12, marginTop: 14 }}>
-          <div style={{ textAlign: "left" }}>
-            <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>
-              Model
-            </div>
-            <select
-              value={model}
-              onChange={(e) => setModel(e.target.value as ModelChoice)}
-              disabled={loading}
-              style={selectStyle}
-            >
-              <option value="ideogram">Ideogram (Fast & Cheap)</option>
-              <option value="openai_replicate">OpenAI (Low — Cheapest)</option>
-            </select>
-          </div>
+      {user && (
+        <div style={{ margin: '20px 0' }}>
+          <h3>Plans</h3>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr 1fr",
-              gap: 10,
-            }}
-          >
-            <div style={{ textAlign: "left" }}>
-              <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>
-                Aspect Ratio
-              </div>
-              <select
-                value={aspectRatio}
-                onChange={(e) => setAspectRatio(e.target.value as AspectRatio)}
-                disabled={loading}
-                style={selectStyle}
+          {hasSubscription ? (
+            <>
+              <p style={{ color: 'green' }}>
+                Active subscription detected.
+              </p>
+
+              <button
+                onClick={manageSubscription}
+                style={{
+                  marginBottom: 10,
+                  background: '#111',
+                  color: '#fff',
+                  padding: '6px 12px',
+                  borderRadius: 6,
+                }}
               >
-                <option value="1:1">1:1 (Square)</option>
-                <option value="4:5">4:5 (Instagram)</option>
-                <option value="9:16">9:16 (Portrait / TikTok)</option>
-                <option value="16:9">16:9 (Landscape)</option>
-              </select>
-            </div>
+                Manage Subscription
+              </button>
 
-            <div style={{ textAlign: "left" }}>
-              <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>
-                Format
-              </div>
-              <select
-                value={outputFormat}
-                onChange={(e) => setOutputFormat(e.target.value as OutputFormat)}
-                disabled={loading}
-                style={selectStyle}
-              >
-                <option value="png">PNG</option>
-                <option value="jpg">JPG</option>
-                <option value="webp">WEBP</option>
-              </select>
-            </div>
+              <p style={{ fontSize: 13, opacity: 0.7 }}>
+                Upgrade, downgrade or cancel inside Manage Subscription.
+              </p>
+            </>
+          ) : (
+            <>
+              <button onClick={() => upgrade('starter')}>
+                Starter — $7.87/week
+              </button>
 
-            {isIdeogram ? (
-              <div style={{ textAlign: "left" }}>
-                <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>
-                  Seed (optional)
-                </div>
-                <input
-                  value={seed ?? ""}
-                  onChange={(e) => setSeed(e.target.value)}
-                  placeholder="12345"
-                  disabled={loading}
-                  inputMode="numeric"
-                  style={inputStyle}
-                />
-              </div>
-            ) : (
-              <div style={{ textAlign: "left" }}>
-                <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>
-                  Upload images (OpenAI) — up to 3
-                </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={onPickOpenAiImages}
-                  disabled={loading}
-                  style={{ width: "100%" }}
-                />
-              </div>
-            )}
-          </div>
-
-          {isIdeogram && (
-            <div style={{ textAlign: "left" }}>
-              <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>
-                Negative Prompt (optional)
-              </div>
-              <input
-                value={negativePrompt ?? ""}
-                onChange={(e) => setNegativePrompt(e.target.value)}
-                placeholder="blurry, low quality, deformed, extra fingers"
-                disabled={loading}
-                style={inputStyle}
-              />
-            </div>
-          )}
-
-          {isOpenAI && (
-            <div style={{ textAlign: "left" }}>
-              <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 8 }}>
-                Selected images
-              </div>
-
-              {openAiImages.length === 0 ? (
-                <div style={{ opacity: 0.7 }}>No images selected yet.</div>
-              ) : (
-                <div style={{ display: "grid", gap: 10 }}>
-                  {openAiImages.map((f, idx) => (
-                    <div
-                      key={`${f.name}-${f.size}-${f.lastModified}-${idx}`}
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        padding: "14px 14px",
-                        borderRadius: 14,
-                        background: "#111",
-                        color: "#fff",
-                        border: "1px solid #222",
-                      }}
-                    >
-                      <div
-                        style={{
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                          maxWidth: "70%",
-                        }}
-                        title={f.name}
-                      >
-                        {idx + 1}. {f.name}
-                      </div>
-                      <button
-                        onClick={() => removeOpenAiImage(idx)}
-                        disabled={loading}
-                        style={{
-                          padding: "8px 12px",
-                          borderRadius: 999,
-                          border: "1px solid #333",
-                          background: "#1f1f1f",
-                          color: "#fff",
-                          cursor: "pointer",
-                        }}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div style={{ marginTop: 10, fontSize: 12, opacity: 0.75 }}>
-                Tip: upload 2–3 images + prompt like “put them together in one realistic photo”.
-              </div>
-            </div>
+              <button onClick={() => upgrade('creator')} style={{ marginLeft: 10 }}>
+                Creator — $29.99/month
+              </button>
+            </>
           )}
         </div>
+      )}
 
-        <button
-          onClick={generate}
-          disabled={!canGenerate}
-          style={{
-            marginTop: 16,
-            padding: "12px 22px",
-            borderRadius: 14,
-            border: "1px solid #333",
-            background: loading ? "#222" : "#111",
-            color: "#fff",
-            cursor: !canGenerate ? "not-allowed" : "pointer",
-            minWidth: 160,
-          }}
+      <h2>Generate</h2>
+
+      <select
+        value={model}
+        onChange={(e) => {
+          const newModel = e.target.value as ModelChoice;
+          setModel(newModel);
+          setAspectRatio(newModel === 'nano' ? 'match_input_image' : '1:1');
+        }}
+      >
+        <option value="nano">Nano</option>
+        <option value="gpt">GPT</option>
+      </select>
+
+      {model === 'gpt' && (
+        <select
+          value={quality}
+          onChange={(e) => setQuality(e.target.value as QualityChoice)}
         >
-          {loading ? "Generating..." : "Generate"}
-        </button>
+          <option value="auto">Auto</option>
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+      )}
 
-        {error && <p style={{ color: "#ff6b6b", marginTop: 14 }}>{error}</p>}
+      <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
+        {ratios.map(r => <option key={r}>{r}</option>)}
+      </select>
 
-        {url && (
-          <div style={{ marginTop: 18 }}>
-            <img src={url} alt="generated" style={{ width: "100%", borderRadius: 18 }} />
-          </div>
-        )}
-      </div>
+      <textarea
+        rows={4}
+        style={{ width: '100%', marginTop: 16 }}
+        placeholder="Prompt..."
+        value={prompt}
+        onChange={(e) => setPrompt(e.target.value)}
+      />
+
+      <input
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={(e) => handleImageUpload(e.target.files)}
+      />
+
+      <button onClick={generate}>
+        {loading ? 'Generating...' : 'Generate'}
+      </button>
+
+      {result && (
+        <>
+          <h2>Latest Result</h2>
+          <img src={result} style={{ maxWidth: '100%' }} />
+        </>
+      )}
     </main>
   );
 }
+
