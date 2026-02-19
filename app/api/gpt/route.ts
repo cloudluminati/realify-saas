@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import Replicate from "replicate";
-import { supabaseServer } from "@/app/lib/supabase-server";
+import { getSupabaseServer } from "@/app/lib/supabase-server";
 
 import {
   canConsume,
@@ -85,6 +85,9 @@ const extractBuffer = (v: any): Buffer | null => {
 
 export async function POST(req: Request) {
   try {
+    // ✅ FIX: Get Supabase server correctly
+    const supabaseServer = await getSupabaseServer();
+
     // ⭐ AUTH USER
     const {
       data: { user },
