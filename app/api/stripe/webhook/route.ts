@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 export const runtime = 'nodejs';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-04-10',
+  apiVersion: '2026-01-28.clover',
 });
 
 // ⭐ FINAL SUBSCRIPTION UNITS
@@ -152,7 +152,7 @@ export async function POST(req: Request) {
       if (units) {
         await stackUnitsForUser(
           userId,
-          'starter', // plan doesn't matter for bundles
+          'starter',
           units,
           customerId
         );
