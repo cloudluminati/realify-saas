@@ -8,20 +8,17 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2026-01-28.clover',
 });
 
-// ⭐ FINAL SUBSCRIPTION UNITS
 const PLAN_UNITS: Record<string, number> = {
   starter: 200,
   creator: 750,
 };
 
-// ⭐ BUNDLE CREDIT AMOUNTS (LOCKED)
 const BUNDLE_UNITS: Record<string, number> = {
   small: 100,
   medium: 200,
   large: 300,
 };
 
-// ⭐ PRICE → PLAN MAP
 const PRICE_TO_PLAN: Record<string, string> = {
   [process.env.STRIPE_PRICE_STARTER || '']: 'starter',
   [process.env.STRIPE_PRICE_CREATOR || '']: 'creator',
@@ -88,9 +85,10 @@ async function stackUnitsForUser(
   }
 }
 
+// ⭐ FIXED TYPE HANDLING
 async function getPlanFromInvoice(invoice: Stripe.Invoice) {
-  const line = invoice.lines?.data?.[0];
-  const priceId = (line?.price as any)?.id as string | undefined;
+  const line = invoice.lines?.data?.[0] as any;
+  const priceId = line?.price?.id;
 
   if (!priceId) return null;
 
@@ -127,7 +125,6 @@ export async function POST(req: Request) {
 
   console.log('Stripe webhook:', event.type);
 
-  // ⭐ CHECKOUT COMPLETED
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
 
@@ -145,7 +142,6 @@ export async function POST(req: Request) {
 
     const customerId = session.customer as string;
 
-    // ⭐ CREDIT BUNDLE PURCHASE
     if (purchaseType === 'credits_bundle' && userId && bundle) {
       const units = BUNDLE_UNITS[bundle];
 
@@ -161,7 +157,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ received: true });
     }
 
-    // ⭐ SUBSCRIPTION FIRST PURCHASE
     const plan = safePlan(session.metadata?.plan);
 
     if (plan && userId) {
@@ -170,7 +165,6 @@ export async function POST(req: Request) {
     }
   }
 
-  // ⭐ RENEWALS
   if (event.type === 'invoice.paid') {
     const invoice = event.data.object as Stripe.Invoice;
 
@@ -200,7 +194,6 @@ export async function POST(req: Request) {
     }
   }
 
-  // ⭐ CANCEL SYNC
   if (event.type === 'customer.subscription.deleted') {
     const sub = event.data.object as Stripe.Subscription;
 
