@@ -85,7 +85,6 @@ async function stackUnitsForUser(
   }
 }
 
-// ⭐ FIXED TYPE HANDLING
 async function getPlanFromInvoice(invoice: Stripe.Invoice) {
   const line = invoice.lines?.data?.[0] as any;
   const priceId = line?.price?.id;
@@ -128,17 +127,22 @@ export async function POST(req: Request) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
 
+    const paymentIntent =
+      typeof session.payment_intent === 'object'
+        ? (session.payment_intent as any)
+        : null;
+
     const userId =
       session.metadata?.user_id ||
-      session.payment_intent?.metadata?.user_id;
+      paymentIntent?.metadata?.user_id;
 
     const purchaseType =
       session.metadata?.purchase_type ||
-      session.payment_intent?.metadata?.purchase_type;
+      paymentIntent?.metadata?.purchase_type;
 
     const bundle =
       session.metadata?.bundle ||
-      session.payment_intent?.metadata?.bundle;
+      paymentIntent?.metadata?.bundle;
 
     const customerId = session.customer as string;
 
