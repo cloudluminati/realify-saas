@@ -4,8 +4,9 @@ import { getSupabaseServer } from "@/app/lib/supabase-server";
 
 export const runtime = "nodejs";
 
+// ✅ FIX: Match Stripe SDK expected API version
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-04-10",
+  apiVersion: "2026-01-28.clover",
 });
 
 type Plan = "starter" | "creator";
@@ -21,17 +22,14 @@ function getPriceId(plan: Plan) {
 }
 
 async function findOrCreateCustomer(email: string): Promise<string> {
-  // Try to find existing Stripe customer by email
   const existing = await stripe.customers.list({ email, limit: 1 });
   if (existing.data?.[0]?.id) return existing.data[0].id;
 
-  // Create new
   const created = await stripe.customers.create({ email });
   return created.id;
 }
 
 async function hasActiveSubscription(customerId: string): Promise<boolean> {
-  // active/trialing/past_due/unpaid = still “has a subscription” for our purposes
   const subs = await stripe.subscriptions.list({
     customer: customerId,
     status: "all",
@@ -52,7 +50,10 @@ export async function POST(req: Request) {
     } = await supabase.auth.getUser();
 
     if (!user?.email) {
-      return NextResponse.json({ error: "not_authenticated" }, { status: 401 });
+      return NextResponse.json(
+        { error: "not_authenticated" },
+        { status: 401 }
+      );
     }
 
     const body = await req.json().catch(() => ({}));
@@ -60,28 +61,28 @@ export async function POST(req: Request) {
 
     const priceId = getPriceId(plan);
     if (!priceId) {
-      return NextResponse.json({ error: "invalid_plan" }, { status: 400 });
+      return NextResponse.json(
+        { error: "invalid_plan" },
+        { status: 400 }
+      );
     }
 
-    // Always anchor billing to a single Stripe customer for this email
     const customerId = await findOrCreateCustomer(user.email);
 
-    // ✅ HARD BLOCK duplicate subscription purchases (even if webhook is delayed)
     if (await hasActiveSubscription(customerId)) {
       const portalSession = await stripe.billingPortal.sessions.create({
         customer: customerId,
         return_url: process.env.NEXT_PUBLIC_SITE_URL!,
       });
+
       return NextResponse.json({ url: portalSession.url });
     }
 
-    // First-time subscription checkout
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
 
-      // Write metadata onto the subscription for invoice.paid handling
       subscription_data: {
         metadata: {
           user_id: user.id,
@@ -95,9 +96,13 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ url: session.url });
+
   } catch (err: any) {
     console.error("STRIPE CHECKOUT ERROR:", err);
-    return NextResponse.json({ error: "checkout_failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: "checkout_failed" },
+      { status: 500 }
+    );
   }
 }
 
