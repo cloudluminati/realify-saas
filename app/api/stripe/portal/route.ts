@@ -5,7 +5,7 @@ import { getSupabaseServer } from "@/app/lib/supabase-server";
 export const runtime = "nodejs";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-04-10",
+  apiVersion: "2026-01-28.clover",
 });
 
 export async function POST() {
@@ -17,10 +17,12 @@ export async function POST() {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ error: "not_authenticated" }, { status: 401 });
+      return NextResponse.json(
+        { error: "not_authenticated" },
+        { status: 401 }
+      );
     }
 
-    // Prefer the most recently updated subscription row for this user
     const { data, error } = await supabase
       .from("subscriptions")
       .select("stripe_customer_id,status,updated_at")
@@ -32,11 +34,17 @@ export async function POST() {
 
     if (error) {
       console.error("Portal lookup error:", error);
-      return NextResponse.json({ error: "portal_lookup_failed" }, { status: 500 });
+      return NextResponse.json(
+        { error: "portal_lookup_failed" },
+        { status: 500 }
+      );
     }
 
     if (!data?.stripe_customer_id) {
-      return NextResponse.json({ error: "no_subscription" }, { status: 400 });
+      return NextResponse.json(
+        { error: "no_subscription" },
+        { status: 400 }
+      );
     }
 
     const portal = await stripe.billingPortal.sessions.create({
@@ -45,9 +53,14 @@ export async function POST() {
     });
 
     return NextResponse.json({ url: portal.url });
+
   } catch (err) {
     console.error("Portal error:", err);
-    return NextResponse.json({ error: "portal_error" }, { status: 500 });
+
+    return NextResponse.json(
+      { error: "portal_error" },
+      { status: 500 }
+    );
   }
 }
 
