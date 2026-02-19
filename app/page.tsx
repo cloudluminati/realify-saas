@@ -1,6 +1,7 @@
 'use client';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/app/lib/supabase';
@@ -38,7 +39,10 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
 
   async function checkAuth() {
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
     setUser(session?.user ?? null);
   }
 
@@ -56,9 +60,11 @@ export default function Page() {
 
   useEffect(() => {
     checkAuth();
+
     const { data: listener } = supabase.auth.onAuthStateChange(() => {
       checkAuth();
     });
+
     return () => listener.subscription.unsubscribe();
   }, []);
 
@@ -68,6 +74,7 @@ export default function Page() {
         cache: 'no-store',
         credentials: 'include',
       });
+
       const data = await res.json();
       setHasSubscription(!!data.active);
     } catch {
@@ -123,6 +130,7 @@ export default function Page() {
       });
 
       const data = await res.json();
+
       if (data?.images?.length) setGallery(data.images);
     } catch {}
   }
@@ -146,10 +154,12 @@ export default function Page() {
 
     try {
       const formData = new FormData();
+
       formData.append('prompt', prompt);
       formData.append('aspectRatio', aspectRatio);
       formData.append('quality', quality);
-      images.forEach(img => formData.append('images', img));
+
+      images.forEach((img) => formData.append('images', img));
 
       const endpoint = model === 'nano' ? '/api/realify' : '/api/gpt';
 
@@ -162,14 +172,18 @@ export default function Page() {
       const data = await res.json();
 
       if (!res.ok) {
-        if (res.status === 403) return alert(data.error || 'Usage limit reached.');
-        if (res.status === 503) return alert('Service temporarily unavailable.');
+        if (res.status === 403)
+          return alert(data.error || 'Usage limit reached.');
+
+        if (res.status === 503)
+          return alert('Service temporarily unavailable.');
+
         return alert('Generation failed.');
       }
 
       setResult(data.image);
 
-      setGallery(prev => [
+      setGallery((prev) => [
         { image_url: data.image, prompt, created_at: Date.now() },
         ...prev,
       ]);
@@ -227,7 +241,10 @@ export default function Page() {
                 Starter — $7.87/week
               </button>
 
-              <button onClick={() => upgrade('creator')} style={{ marginLeft: 10 }}>
+              <button
+                onClick={() => upgrade('creator')}
+                style={{ marginLeft: 10 }}
+              >
                 Creator — $29.99/month
               </button>
             </>
@@ -242,7 +259,9 @@ export default function Page() {
         onChange={(e) => {
           const newModel = e.target.value as ModelChoice;
           setModel(newModel);
-          setAspectRatio(newModel === 'nano' ? 'match_input_image' : '1:1');
+          setAspectRatio(
+            newModel === 'nano' ? 'match_input_image' : '1:1'
+          );
         }}
       >
         <option value="nano">Nano</option>
@@ -252,7 +271,9 @@ export default function Page() {
       {model === 'gpt' && (
         <select
           value={quality}
-          onChange={(e) => setQuality(e.target.value as QualityChoice)}
+          onChange={(e) =>
+            setQuality(e.target.value as QualityChoice)
+          }
         >
           <option value="auto">Auto</option>
           <option value="low">Low</option>
@@ -261,8 +282,13 @@ export default function Page() {
         </select>
       )}
 
-      <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
-        {ratios.map(r => <option key={r}>{r}</option>)}
+      <select
+        value={aspectRatio}
+        onChange={(e) => setAspectRatio(e.target.value)}
+      >
+        {ratios.map((r) => (
+          <option key={r}>{r}</option>
+        ))}
       </select>
 
       <textarea
