@@ -5,14 +5,14 @@ import { getSupabaseServer } from "@/app/lib/supabase-server";
 export const runtime = "nodejs";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-04-10",
+  apiVersion: "2026-01-28.clover",
 });
 
 export async function POST(req: Request) {
   try {
     const supabase = await getSupabaseServer();
 
-    // ✅ 1 — AUTH CHECK
+    // ✅ AUTH CHECK
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ 2 — REQUIRE ACTIVE SUBSCRIPTION
+    // ✅ REQUIRE ACTIVE SUBSCRIPTION
     const { data: sub } = await supabase
       .from("subscriptions")
       .select("status")
@@ -43,7 +43,6 @@ export async function POST(req: Request) {
 
     let priceId: string | undefined;
 
-    // ⭐ YOUR ACTUAL ENV PRICE IDS
     if (bundle === "small") {
       priceId = process.env.STRIPE_PRICE_CREDITS_SMALL;
     } else if (bundle === "medium") {
@@ -59,18 +58,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ 3 — CREATE CHECKOUT SESSION
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-
       customer_email: user.email ?? undefined,
-
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
+      line_items: [{ price: priceId, quantity: 1 }],
 
       payment_intent_data: {
         metadata: {
@@ -85,6 +76,7 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ url: session.url });
+
   } catch (err) {
     console.error("CREDITS CHECKOUT ERROR:", err);
 
