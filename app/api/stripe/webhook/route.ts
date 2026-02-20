@@ -87,7 +87,9 @@ async function stackUnitsForUser(
 
 async function getPlanFromInvoice(invoice: Stripe.Invoice) {
   const line = invoice.lines?.data?.[0] as any;
-  const priceId = line?.price?.id;
+  const priceId =
+    line?.pricing?.price_details?.price ||
+    line?.price?.id;
 
   if (!priceId) return null;
 
@@ -124,26 +126,17 @@ export async function POST(req: Request) {
 
   console.log('Stripe webhook:', event.type);
 
+  /* ------------------------------
+     CHECKOUT COMPLETED
+  ------------------------------ */
+
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
 
-    const paymentIntent =
-      typeof session.payment_intent === 'object'
-        ? (session.payment_intent as any)
-        : null;
-
-    const userId =
-      session.metadata?.user_id ||
-      paymentIntent?.metadata?.user_id;
-
-    const purchaseType =
-      session.metadata?.purchase_type ||
-      paymentIntent?.metadata?.purchase_type;
-
-    const bundle =
-      session.metadata?.bundle ||
-      paymentIntent?.metadata?.bundle;
-
+    const userId = session.metadata?.user_id;
+    const purchaseType = session.metadata?.purchase_type;
+    const bundle = session.metadata?.bundle;
+    const plan = safePlan(session.metadata?.plan);
     const customerId = session.customer as string;
 
     if (purchaseType === 'credits_bundle' && userId && bundle) {
@@ -161,24 +154,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ received: true });
     }
 
-    const plan = safePlan(session.metadata?.plan);
-
     if (plan && userId) {
       const units = PLAN_UNITS[plan];
       await stackUnitsForUser(userId, plan, units, customerId);
     }
   }
 
-  if (event.type === 'invoice.paid') {
-    const invoice = event.data.object as Stripe.Invoice;
+  /* ------------------------------
+     INVOICE PAYMENT SUCCEEDED
+     (FIRST PAYMENT + RENEWALS)
+  ------------------------------ */
 
-    if (invoice.billing_reason !== 'subscription_cycle') {
-      return NextResponse.json({ received: true });
-    }
+  if (
+    event.type === 'invoice.payment_succeeded' ||
+    event.type === 'invoice.paid'
+  ) {
+    const invoice = event.data.object as Stripe.Invoice;
 
     const plan = (await getPlanFromInvoice(invoice)) || 'starter';
     const units = PLAN_UNITS[plan];
-
     const customerId = invoice.customer as string;
 
     const { data } = await supabase
@@ -197,6 +191,10 @@ export async function POST(req: Request) {
       );
     }
   }
+
+  /* ------------------------------
+     SUBSCRIPTION CANCELED
+  ------------------------------ */
 
   if (event.type === 'customer.subscription.deleted') {
     const sub = event.data.object as Stripe.Subscription;
