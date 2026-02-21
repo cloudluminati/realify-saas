@@ -1,11 +1,11 @@
-import { NextResponse } from 'next/server';
-import Stripe from 'stripe';
-import { createClient } from '@supabase/supabase-js';
+import { NextResponse } from "next/server";
+import Stripe from "stripe";
+import { createClient } from "@supabase/supabase-js";
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2026-01-28.clover',
+  apiVersion: "2026-01-28.clover",
 });
 
 const PLAN_UNITS: Record<string, number> = {
@@ -20,8 +20,8 @@ const BUNDLE_UNITS: Record<string, number> = {
 };
 
 const PRICE_TO_PLAN: Record<string, string> = {
-  [process.env.STRIPE_PRICE_STARTER || '']: 'starter',
-  [process.env.STRIPE_PRICE_CREATOR || '']: 'creator',
+  [process.env.STRIPE_PRICE_STARTER || ""]: "starter",
+  [process.env.STRIPE_PRICE_CREATOR || ""]: "creator",
 };
 
 const supabase = createClient(
@@ -29,8 +29,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-function safePlan(plan: any): 'starter' | 'creator' | null {
-  if (plan === 'starter' || plan === 'creator') return plan;
+function safePlan(plan: any): "starter" | "creator" | null {
+  if (plan === "starter" || plan === "creator") return plan;
   return null;
 }
 
@@ -41,9 +41,9 @@ async function stackUnitsForUser(
   stripeCustomerId?: string
 ) {
   const { data: existingSub } = await supabase
-    .from('subscriptions')
-    .select('*')
-    .eq('user_id', userId)
+    .from("subscriptions")
+    .select("*")
+    .eq("user_id", userId)
     .limit(1)
     .maybeSingle();
 
@@ -55,55 +55,43 @@ async function stackUnitsForUser(
       Number(existingSub.units_total || 0) + addUnits;
 
     await supabase
-      .from('subscriptions')
+      .from("subscriptions")
       .update({
         plan,
-        status: 'active',
-        ...(stripeCustomerId && {
-          stripe_customer_id: stripeCustomerId,
-        }),
+        status: "active",
+        stripe_customer_id: stripeCustomerId,
         units_total: newTotal,
         units_remaining: newRemaining,
         updated_at: new Date().toISOString(),
       })
-      .eq('user_id', userId);
-
-    console.log('✅ Credits stacked:', userId, newRemaining);
+      .eq("user_id", userId);
   } else {
-    await supabase.from('subscriptions').insert({
+    await supabase.from("subscriptions").insert({
       user_id: userId,
-      ...(stripeCustomerId && {
-        stripe_customer_id: stripeCustomerId,
-      }),
+      stripe_customer_id: stripeCustomerId,
       plan,
-      status: 'active',
+      status: "active",
       units_total: addUnits,
       units_remaining: addUnits,
     });
-
-    console.log('✅ New subscription row created');
   }
 }
 
 async function getPlanFromInvoice(invoice: Stripe.Invoice) {
   const line = invoice.lines?.data?.[0] as any;
   const priceId =
-    line?.pricing?.price_details?.price ||
-    line?.price?.id;
+    line?.pricing?.price_details?.price || line?.price?.id;
 
   if (!priceId) return null;
 
-  return PRICE_TO_PLAN[priceId] || null;
+  return PRICE_TO_PLAN[priceId] || "starter";
 }
 
 export async function POST(req: Request) {
-  const sig = req.headers.get('stripe-signature');
+  const sig = req.headers.get("stripe-signature");
 
   if (!sig) {
-    return NextResponse.json(
-      { error: 'Missing signature' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Missing signature" }, { status: 400 });
   }
 
   const bodyBuffer = Buffer.from(await req.arrayBuffer());
@@ -117,38 +105,40 @@ export async function POST(req: Request) {
       process.env.STRIPE_WEBHOOK_SECRET!
     );
   } catch (err: any) {
-    console.error('❌ Webhook verify failed:', err.message);
+    console.error("Webhook verify failed:", err.message);
     return NextResponse.json(
-      { error: 'Webhook verification failed' },
+      { error: "Webhook verification failed" },
       { status: 400 }
     );
   }
 
-  console.log('Stripe webhook:', event.type);
+  console.log("Stripe webhook:", event.type);
 
-  /* ------------------------------
-     CHECKOUT COMPLETED
-  ------------------------------ */
+  /* --------------------------------------------------
+     CHECKOUT SESSION COMPLETED
+  -------------------------------------------------- */
 
-  if (event.type === 'checkout.session.completed') {
+  if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
 
-    const userId = session.metadata?.user_id;
+    const userId =
+      session.metadata?.user_id ||
+      session.subscription_details?.metadata?.user_id;
+
+    const plan =
+      safePlan(session.metadata?.plan) ||
+      safePlan(session.subscription_details?.metadata?.plan);
+
     const purchaseType = session.metadata?.purchase_type;
     const bundle = session.metadata?.bundle;
-    const plan = safePlan(session.metadata?.plan);
+
     const customerId = session.customer as string;
 
-    if (purchaseType === 'credits_bundle' && userId && bundle) {
+    if (purchaseType === "credits_bundle" && userId && bundle) {
       const units = BUNDLE_UNITS[bundle];
 
       if (units) {
-        await stackUnitsForUser(
-          userId,
-          'starter',
-          units,
-          customerId
-        );
+        await stackUnitsForUser(userId, "starter", units, customerId);
       }
 
       return NextResponse.json({ received: true });
@@ -160,54 +150,55 @@ export async function POST(req: Request) {
     }
   }
 
-  /* ------------------------------
+  /* --------------------------------------------------
      INVOICE PAYMENT SUCCEEDED
-     (FIRST PAYMENT + RENEWALS)
-  ------------------------------ */
+  -------------------------------------------------- */
 
   if (
-    event.type === 'invoice.payment_succeeded' ||
-    event.type === 'invoice.paid'
+    event.type === "invoice.payment_succeeded" ||
+    event.type === "invoice.paid"
   ) {
     const invoice = event.data.object as Stripe.Invoice;
 
-    const plan = (await getPlanFromInvoice(invoice)) || 'starter';
+    const plan = await getPlanFromInvoice(invoice);
     const units = PLAN_UNITS[plan];
     const customerId = invoice.customer as string;
 
-    const { data } = await supabase
-      .from('subscriptions')
-      .select('user_id')
-      .eq('stripe_customer_id', customerId)
-      .limit(1)
-      .maybeSingle();
+    let userId =
+      invoice.parent?.subscription_details?.metadata?.user_id ||
+      invoice.lines?.data?.[0]?.metadata?.user_id;
 
-    if (data?.user_id) {
-      await stackUnitsForUser(
-        data.user_id,
-        plan,
-        units,
-        customerId
-      );
+    if (!userId) {
+      const { data } = await supabase
+        .from("subscriptions")
+        .select("user_id")
+        .eq("stripe_customer_id", customerId)
+        .limit(1)
+        .maybeSingle();
+
+      userId = data?.user_id;
+    }
+
+    if (userId) {
+      await stackUnitsForUser(userId, plan, units, customerId);
     }
   }
 
-  /* ------------------------------
-     SUBSCRIPTION CANCELED
-  ------------------------------ */
+  /* --------------------------------------------------
+     SUB CANCELLED
+  -------------------------------------------------- */
 
-  if (event.type === 'customer.subscription.deleted') {
+  if (event.type === "customer.subscription.deleted") {
     const sub = event.data.object as Stripe.Subscription;
 
     await supabase
-      .from('subscriptions')
+      .from("subscriptions")
       .update({
-        status: 'inactive',
+        status: "inactive",
         updated_at: new Date().toISOString(),
       })
-      .eq('stripe_customer_id', sub.customer as string);
+      .eq("stripe_customer_id", sub.customer as string);
   }
 
   return NextResponse.json({ received: true });
 }
-
