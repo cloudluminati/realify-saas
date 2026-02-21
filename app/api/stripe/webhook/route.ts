@@ -114,12 +114,10 @@ export async function POST(req: Request) {
 
   console.log("Stripe webhook:", event.type);
 
-  /* --------------------------------------------------
-     CHECKOUT SESSION COMPLETED
-  -------------------------------------------------- */
+  /* ---------------- CHECKOUT COMPLETED ---------------- */
 
   if (event.type === "checkout.session.completed") {
-    const session = event.data.object as Stripe.Checkout.Session;
+    const session = event.data.object as any;
 
     const userId =
       session.metadata?.user_id ||
@@ -131,16 +129,13 @@ export async function POST(req: Request) {
 
     const purchaseType = session.metadata?.purchase_type;
     const bundle = session.metadata?.bundle;
-
-    const customerId = session.customer as string;
+    const customerId = session.customer;
 
     if (purchaseType === "credits_bundle" && userId && bundle) {
       const units = BUNDLE_UNITS[bundle];
-
       if (units) {
         await stackUnitsForUser(userId, "starter", units, customerId);
       }
-
       return NextResponse.json({ received: true });
     }
 
@@ -150,19 +145,17 @@ export async function POST(req: Request) {
     }
   }
 
-  /* --------------------------------------------------
-     INVOICE PAYMENT SUCCEEDED
-  -------------------------------------------------- */
+  /* ---------------- INVOICE PAYMENT ---------------- */
 
   if (
     event.type === "invoice.payment_succeeded" ||
     event.type === "invoice.paid"
   ) {
-    const invoice = event.data.object as Stripe.Invoice;
+    const invoice = event.data.object as any;
 
-    const plan = await getPlanFromInvoice(invoice);
+    const plan = (await getPlanFromInvoice(invoice)) || "starter";
     const units = PLAN_UNITS[plan];
-    const customerId = invoice.customer as string;
+    const customerId = invoice.customer;
 
     let userId =
       invoice.parent?.subscription_details?.metadata?.user_id ||
@@ -184,9 +177,7 @@ export async function POST(req: Request) {
     }
   }
 
-  /* --------------------------------------------------
-     SUB CANCELLED
-  -------------------------------------------------- */
+  /* ---------------- SUB CANCELLED ---------------- */
 
   if (event.type === "customer.subscription.deleted") {
     const sub = event.data.object as Stripe.Subscription;
