@@ -49,7 +49,10 @@ export async function POST(req: Request) {
     } = await supabase.auth.getUser();
 
     if (!user?.email) {
-      return NextResponse.json({ error: "not_authenticated" }, { status: 401 });
+      return NextResponse.json(
+        { error: "not_authenticated" },
+        { status: 401 }
+      );
     }
 
     const body = await req.json().catch(() => ({}));
@@ -57,13 +60,14 @@ export async function POST(req: Request) {
 
     const priceId = getPriceId(plan);
     if (!priceId) {
-      return NextResponse.json({ error: "invalid_plan" }, { status: 400 });
+      return NextResponse.json(
+        { error: "invalid_plan" },
+        { status: 400 }
+      );
     }
 
     const customerId = await findOrCreateCustomer(user.email);
 
-    // If they already have a sub, force them to manage it in the Stripe Customer Portal
-    // (prevents stacking subscriptions)
     if (await hasActiveSubscription(customerId)) {
       const portalSession = await stripe.billingPortal.sessions.create({
         customer: customerId,
@@ -78,14 +82,13 @@ export async function POST(req: Request) {
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
 
-      // ✅ THIS is what your webhook needs (checkout.session.completed has session.metadata)
+      // 🔥 CRITICAL FIX — ADD METADATA HERE TOO
       metadata: {
         user_id: user.id,
         plan,
         purchase_type: "subscription",
       },
 
-      // ✅ Keep this too (useful on the subscription object + invoices)
       subscription_data: {
         metadata: {
           user_id: user.id,
@@ -94,17 +97,18 @@ export async function POST(req: Request) {
         },
       },
 
-      // Optional but helpful for debugging
-      client_reference_id: user.id,
-
       allow_promotion_codes: true,
       success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/?upgrade=success`,
       cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/?upgrade=cancel`,
     });
 
     return NextResponse.json({ url: session.url });
+
   } catch (err: any) {
     console.error("STRIPE CHECKOUT ERROR:", err);
-    return NextResponse.json({ error: "checkout_failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: "checkout_failed" },
+      { status: 500 }
+    );
   }
 }
