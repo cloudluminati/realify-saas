@@ -4,20 +4,29 @@ import { useEffect, useState } from "react";
 
 type SubscriptionData = {
   active: boolean;
-  plan?: string;
-  units_remaining?: number;
+  plan: string | null;
 };
 
 export default function BillingPage() {
-  const [sub, setSub] = useState<SubscriptionData>({ active: false });
+  const [sub, setSub] = useState<SubscriptionData>({
+    active: false,
+    plan: null,
+  });
+
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetch("/api/subscription-status")
-      .then((res) => res.json())
-      .then((data) => {
-        setSub(data);
+    async function loadStatus() {
+      const res = await fetch("/api/subscription-status", {
+        credentials: "include",
+        cache: "no-store",
       });
+
+      const data = await res.json();
+      setSub(data);
+    }
+
+    loadStatus();
   }, []);
 
   const upgradePlan = async (plan: "starter" | "creator") => {
@@ -31,9 +40,8 @@ export default function BillingPage() {
 
     const res = await fetch("/api/stripe/checkout", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ plan }),
     });
 
@@ -50,12 +58,15 @@ export default function BillingPage() {
   const openPortal = async () => {
     const res = await fetch("/api/stripe/portal", {
       method: "POST",
+      credentials: "include",
     });
 
     const data = await res.json();
 
     if (data.url) {
       window.location.href = data.url;
+    } else {
+      alert("Unable to open billing portal.");
     }
   };
 
@@ -69,8 +80,6 @@ export default function BillingPage() {
       }}
     >
       <h1>Manage Subscription</h1>
-
-      {/* CURRENT STATUS */}
 
       <div
         style={{
@@ -91,8 +100,6 @@ export default function BillingPage() {
         )}
       </div>
 
-      {/* PLANS */}
-
       <div
         style={{
           border: "1px solid #ddd",
@@ -106,7 +113,6 @@ export default function BillingPage() {
         <div style={{ marginTop: "20px" }}>
           <h4>Starter</h4>
           <p>$7.87 / week</p>
-          <p>200 credits per week</p>
 
           <button
             disabled={loading || sub.plan === "starter"}
@@ -122,7 +128,6 @@ export default function BillingPage() {
         <div>
           <h4>Creator</h4>
           <p>$29.99 / month</p>
-          <p>750 credits per month</p>
 
           <button
             disabled={loading || sub.plan === "creator"}
@@ -133,8 +138,6 @@ export default function BillingPage() {
           </button>
         </div>
       </div>
-
-      {/* BILLING SETTINGS */}
 
       <div
         style={{
