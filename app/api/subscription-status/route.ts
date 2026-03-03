@@ -13,21 +13,36 @@ export async function GET() {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ active: false });
+      return NextResponse.json({
+        active: false,
+        plan: null,
+      });
     }
 
     const { data: sub } = await supabase
       .from("subscriptions")
-      .select("status")
+      .select("plan, status")
       .eq("user_id", user.id)
-      // ⭐ FIX: include canceling subscriptions too
       .in("status", ["active", "canceling"])
       .maybeSingle();
 
-    return NextResponse.json({ active: !!sub });
+    if (!sub) {
+      return NextResponse.json({
+        active: false,
+        plan: null,
+      });
+    }
+
+    return NextResponse.json({
+      active: true,
+      plan: sub.plan,
+    });
   } catch (err) {
     console.error("Subscription status error:", err);
-    return NextResponse.json({ active: false });
+
+    return NextResponse.json({
+      active: false,
+      plan: null,
+    });
   }
 }
-

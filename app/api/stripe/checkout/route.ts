@@ -28,16 +28,25 @@ async function findOrCreateCustomer(email: string): Promise<string> {
   return created.id;
 }
 
-async function hasActiveSubscription(customerId: string): Promise<boolean> {
+async function cancelExistingSubscriptions(customerId: string) {
   const subs = await stripe.subscriptions.list({
     customer: customerId,
     status: "all",
     limit: 20,
   });
 
-  return subs.data.some((s) =>
-    ["active", "trialing", "past_due", "unpaid"].includes(s.status)
-  );
+  for (const sub of subs.data) {
+    if (["active", "trialing", "past_due", "unpaid"].includes(sub.status)) {
+      try {
+        await stripe.subscriptions.cancel(sub.id, {
+          prorate: false,
+          invoice_now: false,
+        });
+      } catch (err) {
+        console.error("SUB CANCEL ERROR:", err);
+      }
+    }
+  }
 }
 
 export async function POST(req: Request) {
@@ -68,28 +77,17 @@ export async function POST(req: Request) {
 
     const customerId = await findOrCreateCustomer(user.email);
 
-    if (await hasActiveSubscription(customerId)) {
-      const portalSession = await stripe.billingPortal.sessions.create({
-        customer: customerId,
-        return_url: process.env.NEXT_PUBLIC_SITE_URL!,
-      });
-
-      return NextResponse.json({ url: portalSession.url });
-    }
+    // Cancel old sub first (your strict billing rule)
+    await cancelExistingSubscriptions(customerId);
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
 
-      // 🔥 CRITICAL FIX — ADD METADATA HERE TOO
-      metadata: {
-        user_id: user.id,
-        plan,
-        purchase_type: "subscription",
-      },
-
+      // 🔥 THIS FIXES YOUR PAYMENT ISSUE
       subscription_data: {
+        payment_behavior: "default_incomplete",
         metadata: {
           user_id: user.id,
           plan,
@@ -97,7 +95,16 @@ export async function POST(req: Request) {
         },
       },
 
-      allow_promotion_codes: true,
+      metadata: {
+        user_id: user.id,
+        plan,
+_toggle purchase_type: "subscription",
+      },
+
+      payment_method_collection: "always",
+
+      allow_promotion_codes: false,
+
       success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/?upgrade=success`,
       cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/?upgrade=cancel`,
     });

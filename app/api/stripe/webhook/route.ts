@@ -29,11 +29,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-function safePlan(plan: any): "starter" | "creator" | null {
-  if (plan === "starter" || plan === "creator") return plan;
-  return null;
-}
-
 async function stackUnitsForUser(
   userId: string,
   plan: string,
@@ -84,7 +79,7 @@ async function getPlanFromInvoice(invoice: Stripe.Invoice) {
 
   if (!priceId) return null;
 
-  return PRICE_TO_PLAN[priceId] || "starter";
+  return PRICE_TO_PLAN[priceId] || null;
 }
 
 export async function POST(req: Request) {
@@ -114,21 +109,14 @@ export async function POST(req: Request) {
 
   console.log("Stripe webhook:", event.type);
 
-  /* ---------------- CHECKOUT COMPLETED ---------------- */
+  /* ---------------- ONE-TIME CREDIT BUNDLES ---------------- */
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as any;
 
-    const userId =
-      session.metadata?.user_id ||
-      session.subscription_details?.metadata?.user_id;
-
-    const plan =
-      safePlan(session.metadata?.plan) ||
-      safePlan(session.subscription_details?.metadata?.plan);
-
     const purchaseType = session.metadata?.purchase_type;
     const bundle = session.metadata?.bundle;
+    const userId = session.metadata?.user_id;
     const customerId = session.customer;
 
     if (purchaseType === "credits_bundle" && userId && bundle) {
@@ -136,41 +124,28 @@ export async function POST(req: Request) {
       if (units) {
         await stackUnitsForUser(userId, "starter", units, customerId);
       }
-      return NextResponse.json({ received: true });
-    }
-
-    if (plan && userId) {
-      const units = PLAN_UNITS[plan];
-      await stackUnitsForUser(userId, plan, units, customerId);
     }
   }
 
-  /* ---------------- INVOICE PAYMENT ---------------- */
+  /* ---------------- SUBSCRIPTION PAYMENTS ---------------- */
 
-  if (
-    event.type === "invoice.payment_succeeded" ||
-    event.type === "invoice.paid"
-  ) {
-    const invoice = event.data.object as any;
+  if (event.type === "invoice.payment_succeeded") {
+    const invoice = event.data.object as Stripe.Invoice;
 
-    const plan = (await getPlanFromInvoice(invoice)) || "starter";
+    const plan = await getPlanFromInvoice(invoice);
+    if (!plan) return NextResponse.json({ received: true });
+
     const units = PLAN_UNITS[plan];
-    const customerId = invoice.customer;
+    const customerId = invoice.customer as string;
 
-    let userId =
-      invoice.parent?.subscription_details?.metadata?.user_id ||
-      invoice.lines?.data?.[0]?.metadata?.user_id;
+    const { data } = await supabase
+      .from("subscriptions")
+      .select("user_id")
+      .eq("stripe_customer_id", customerId)
+      .limit(1)
+      .maybeSingle();
 
-    if (!userId) {
-      const { data } = await supabase
-        .from("subscriptions")
-        .select("user_id")
-        .eq("stripe_customer_id", customerId)
-        .limit(1)
-        .maybeSingle();
-
-      userId = data?.user_id;
-    }
+    const userId = data?.user_id;
 
     if (userId) {
       await stackUnitsForUser(userId, plan, units, customerId);

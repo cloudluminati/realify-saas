@@ -103,25 +103,6 @@ export default function Page() {
     }
   }
 
-  async function manageSubscription() {
-    try {
-      const res = await fetch('/api/stripe/portal', {
-        method: 'POST',
-        credentials: 'include',
-      });
-
-      const data = await res.json();
-
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        alert(data.error || 'Unable to open billing portal.');
-      }
-    } catch {
-      alert('Portal error.');
-    }
-  }
-
   async function fetchGallery() {
     try {
       const res = await fetch('/api/gallery', {
@@ -146,8 +127,17 @@ export default function Page() {
   }
 
   async function generate() {
-    if (!user) return alert('Login required.');
-    if (!hasSubscription) return alert('Subscription required.');
+    if (!user) {
+      alert('Login required.');
+      return;
+    }
+
+    // 🔥 Redirect to billing instead of alert
+    if (!hasSubscription) {
+      window.location.href = '/billing';
+      return;
+    }
+
     if (!prompt.trim() || loading) return;
 
     setLoading(true);
@@ -219,7 +209,7 @@ export default function Page() {
               </p>
 
               <button
-                onClick={manageSubscription}
+                onClick={() => (window.location.href = '/billing')}
                 style={{
                   marginBottom: 10,
                   background: '#111',
@@ -319,4 +309,3 @@ export default function Page() {
     </main>
   );
 }
-
