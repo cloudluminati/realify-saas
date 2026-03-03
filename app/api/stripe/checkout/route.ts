@@ -77,7 +77,7 @@ export async function POST(req: Request) {
 
     const customerId = await findOrCreateCustomer(user.email);
 
-    // Cancel old sub first (your strict billing rule)
+    // Strict billing model: cancel existing before creating new
     await cancelExistingSubscriptions(customerId);
 
     const session = await stripe.checkout.sessions.create({
@@ -85,23 +85,11 @@ export async function POST(req: Request) {
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
 
-      // 🔥 THIS FIXES YOUR PAYMENT ISSUE
-      subscription_data: {
-        payment_behavior: "default_incomplete",
-        metadata: {
-          user_id: user.id,
-          plan,
-          purchase_type: "subscription",
-        },
-      },
-
       metadata: {
         user_id: user.id,
         plan,
-_toggle purchase_type: "subscription",
+        purchase_type: "subscription",
       },
-
-      payment_method_collection: "always",
 
       allow_promotion_codes: false,
 
