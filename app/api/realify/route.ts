@@ -15,6 +15,15 @@ const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN!,
 });
 
+/* -------------------------------------------------------------------------- */
+/*                          SIMPLE RATE LIMIT GUARD                           */
+/* -------------------------------------------------------------------------- */
+
+const lastRequestMap = new Map<string, number>();
+const REQUEST_COOLDOWN = 2000; // 2 seconds
+
+/* -------------------------------------------------------------------------- */
+
 const ALLOWED_RATIOS = new Set([
   "match_input_image",
   "1:1",
@@ -58,7 +67,24 @@ export async function POST(req: Request) {
 
     const user_id = user.id;
 
-    // ⭐ FIX: allow active OR canceling subscriptions
+    /* -------------------------------------------------------------------------- */
+    /*                           RATE LIMIT CHECK                                 */
+    /* -------------------------------------------------------------------------- */
+
+    const now = Date.now();
+    const lastRequest = lastRequestMap.get(user_id);
+
+    if (lastRequest && now - lastRequest < REQUEST_COOLDOWN) {
+      return NextResponse.json(
+        { error: "Too many requests" },
+        { status: 429 }
+      );
+    }
+
+    lastRequestMap.set(user_id, now);
+
+    /* -------------------------------------------------------------------------- */
+
     const { data: sub } = await supabaseServer
       .from("subscriptions")
       .select("status")
@@ -213,4 +239,3 @@ export async function POST(req: Request) {
     );
   }
 }
-
