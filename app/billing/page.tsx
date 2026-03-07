@@ -55,6 +55,30 @@ export default function BillingPage() {
     }
   };
 
+  const buyCredits = async (bundle: "small" | "medium" | "large") => {
+    if (!sub.active) {
+      alert("You must have an active subscription to purchase credits.");
+      return;
+    }
+
+    const res = await fetch("/api/stripe/credits-checkout", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({ bundle }),
+    });
+
+    const data = await res.json();
+
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      alert("Credit checkout failed.");
+    }
+  };
+
   const openPortal = async () => {
     const res = await fetch("/api/stripe/portal", {
       method: "POST",
@@ -81,6 +105,8 @@ export default function BillingPage() {
     >
       <h1>Manage Subscription</h1>
 
+      {/* CURRENT PLAN */}
+
       <div
         style={{
           border: "1px solid #ddd",
@@ -99,6 +125,8 @@ export default function BillingPage() {
           <p>You do not currently have an active subscription.</p>
         )}
       </div>
+
+      {/* PLANS */}
 
       <div
         style={{
@@ -138,6 +166,59 @@ export default function BillingPage() {
           </button>
         </div>
       </div>
+
+      {/* CREDIT BUNDLES */}
+
+      {sub.active && (
+        <div
+          style={{
+            border: "1px solid #ddd",
+            padding: "20px",
+            borderRadius: "8px",
+            marginTop: "30px",
+          }}
+        >
+          <h3>Buy Extra Credits</h3>
+
+          <p>
+            Need more generations? Purchase additional credits that stack with
+            your subscription.
+          </p>
+
+          <div style={{ marginTop: "20px" }}>
+            <h4>$5 Bundle</h4>
+            <p>≈100 credits</p>
+
+            <button onClick={() => buyCredits("small")}>
+              Buy $5 Credits
+            </button>
+          </div>
+
+          <hr style={{ margin: "25px 0" }} />
+
+          <div>
+            <h4>$10 Bundle</h4>
+            <p>≈200 credits</p>
+
+            <button onClick={() => buyCredits("medium")}>
+              Buy $10 Credits
+            </button>
+          </div>
+
+          <hr style={{ margin: "25px 0" }} />
+
+          <div>
+            <h4>$15 Bundle</h4>
+            <p>≈300 credits</p>
+
+            <button onClick={() => buyCredits("large")}>
+              Buy $15 Credits
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* BILLING SETTINGS */}
 
       <div
         style={{
