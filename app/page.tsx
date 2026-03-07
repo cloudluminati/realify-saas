@@ -76,30 +76,16 @@ export default function Page() {
       });
 
       const data = await res.json();
-      setHasSubscription(!!data.active);
-    } catch {
-      setHasSubscription(false);
-    }
-  }
 
-  async function upgrade(plan: 'starter' | 'creator') {
-    try {
-      const res = await fetch('/api/stripe/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ plan }),
-      });
-
-      const data = await res.json();
-
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        alert(data.error || 'Checkout failed.');
+      if (!data.active) {
+        window.location.href = '/billing';
+        return;
       }
+
+      setHasSubscription(true);
+
     } catch {
-      alert('Checkout error.');
+      window.location.href = '/billing';
     }
   }
 
@@ -117,8 +103,10 @@ export default function Page() {
   }
 
   useEffect(() => {
-    checkSubscription();
-    fetchGallery();
+    if (user) {
+      checkSubscription();
+      fetchGallery();
+    }
   }, [user]);
 
   function handleImageUpload(files: FileList | null) {
@@ -132,7 +120,6 @@ export default function Page() {
       return;
     }
 
-    // 🔥 Redirect to billing instead of alert
     if (!hasSubscription) {
       window.location.href = '/billing';
       return;
@@ -179,6 +166,7 @@ export default function Page() {
       ]);
 
       setTimeout(fetchGallery, 2000);
+
     } catch {
       alert('Network error.');
     } finally {
@@ -188,59 +176,43 @@ export default function Page() {
 
   const ratios = model === 'nano' ? NANO_RATIOS : GPT_RATIOS;
 
+  if (!user) {
+    return (
+      <main style={{ maxWidth: 900, margin: 'auto', padding: 32 }}>
+        <h1>Realify</h1>
+        <button onClick={login}>Login with Google</button>
+      </main>
+    );
+  }
+
+  if (hasSubscription === null) {
+    return (
+      <main style={{ maxWidth: 900, margin: 'auto', padding: 32 }}>
+        <h1>Checking subscription...</h1>
+      </main>
+    );
+  }
+
   return (
     <main style={{ maxWidth: 900, margin: 'auto', padding: 32 }}>
       <h1>Realify</h1>
 
-      {!user ? (
-        <button onClick={login}>Login</button>
-      ) : (
-        <button onClick={logout}>Logout</button>
-      )}
+      <button onClick={logout}>Logout</button>
 
-      {user && (
-        <div style={{ margin: '20px 0' }}>
-          <h3>Plans</h3>
-
-          {hasSubscription ? (
-            <>
-              <p style={{ color: 'green' }}>
-                Active subscription detected.
-              </p>
-
-              <button
-                onClick={() => (window.location.href = '/billing')}
-                style={{
-                  marginBottom: 10,
-                  background: '#111',
-                  color: '#fff',
-                  padding: '6px 12px',
-                  borderRadius: 6,
-                }}
-              >
-                Manage Subscription
-              </button>
-
-              <p style={{ fontSize: 13, opacity: 0.7 }}>
-                Upgrade, downgrade or cancel inside Manage Subscription.
-              </p>
-            </>
-          ) : (
-            <>
-              <button onClick={() => upgrade('starter')}>
-                Starter — $7.87/week
-              </button>
-
-              <button
-                onClick={() => upgrade('creator')}
-                style={{ marginLeft: 10 }}
-              >
-                Creator — $29.99/month
-              </button>
-            </>
-          )}
-        </div>
-      )}
+      <div style={{ margin: '20px 0' }}>
+        <button
+          onClick={() => (window.location.href = '/billing')}
+          style={{
+            marginBottom: 10,
+            background: '#111',
+            color: '#fff',
+            padding: '6px 12px',
+            borderRadius: 6,
+          }}
+        >
+          Manage Subscription
+        </button>
+      </div>
 
       <h2>Generate</h2>
 
