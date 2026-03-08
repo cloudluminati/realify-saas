@@ -139,6 +139,16 @@ export default function Page() {
     setImages(Array.from(files));
   }
 
+  function remixPrompt(p: string) {
+
+    setPrompt(p);
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth"
+    });
+  }
+
   async function generate() {
 
     if (!prompt.trim() || loading) return;
@@ -325,80 +335,8 @@ export default function Page() {
             }}
           />
 
-          <div style={{ marginTop: 15, display: 'flex', gap: 10 }}>
-
-            <a
-              href={result}
-              download="realify-image.png"
-              style={{
-                padding: "8px 14px",
-                background: "#111",
-                color: "#fff",
-                borderRadius: 6,
-                textDecoration: "none"
-              }}
-            >
-              Download Image
-            </a>
-
-            <button
-              onClick={() => {
-
-                navigator.clipboard.writeText(prompt);
-
-                alert("Prompt copied!");
-
-              }}
-              style={{
-                padding: "8px 14px",
-                borderRadius: 6,
-                border: "1px solid #ccc"
-              }}
-            >
-              Copy Prompt
-            </button>
-
-          </div>
         </>
       )}
-
-      <h2 style={{ marginTop: 40 }}>Prompt History</h2>
-
-      <div style={{ marginTop: 10 }}>
-
-        {gallery.slice(0,10).map((img,i)=>(
-
-          <div
-            key={i}
-            style={{
-              display:'flex',
-              justifyContent:'space-between',
-              borderBottom:'1px solid #eee',
-              padding:'6px 0'
-            }}
-          >
-
-            <span style={{ fontSize:13 }}>
-              {img.prompt}
-            </span>
-
-            <button
-              onClick={()=>setPrompt(img.prompt)}
-              style={{
-                fontSize:12,
-                border:'1px solid #ccc',
-                borderRadius:4,
-                padding:'2px 6px'
-              }}
-            >
-              Use
-            </button>
-
-          </div>
-
-        ))}
-
-      </div>
 
       <h2 style={{ marginTop: 50 }}>Recent Creations</h2>
 
@@ -413,15 +351,31 @@ export default function Page() {
 
         {gallery.map((img, i) => (
 
-          <img
-            key={i}
-            src={img.image_url}
-            style={{
-              width: '100%',
-              borderRadius: 8,
-              objectFit: 'cover',
-            }}
-          />
+          <div key={i}>
+
+            <img
+              src={img.image_url}
+              style={{
+                width: '100%',
+                borderRadius: 8,
+                objectFit: 'cover',
+              }}
+            />
+
+            <button
+              onClick={() => remixPrompt(img.prompt)}
+              style={{
+                marginTop: 5,
+                width: "100%",
+                borderRadius: 6,
+                border: "1px solid #ccc",
+                padding: "5px"
+              }}
+            >
+              Remix
+            </button>
+
+          </div>
 
         ))}
 
