@@ -113,10 +113,7 @@ export default function Page() {
 
       const data = await res.json();
 
-      if (data?.images?.length) {
-
-        setGallery(data.images);
-      }
+      if (data?.images?.length) setGallery(data.images);
 
     } catch {}
   }
@@ -126,7 +123,6 @@ export default function Page() {
     fetchGallery();
 
     if (user) {
-
       checkSubscription();
     }
 
@@ -137,16 +133,6 @@ export default function Page() {
     if (!files) return;
 
     setImages(Array.from(files));
-  }
-
-  function remixPrompt(p: string) {
-
-    setPrompt(p);
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth"
-    });
   }
 
   async function generate() {
@@ -223,43 +209,34 @@ export default function Page() {
           Create cinematic AI images instantly using advanced AI models.
         </p>
 
-        <button
-          onClick={login}
-          style={{
-            marginTop: 40,
-            padding: '10px 20px',
-            fontSize: 16,
-            background: '#111',
-            color: '#fff',
-            borderRadius: 6,
-          }}
-        >
-          Login with Google
-        </button>
+        <div style={{ marginTop: 20 }}>
 
-        <h2 style={{ marginTop: 60 }}>Recent Creations</h2>
+          <button
+            onClick={login}
+            style={{
+              padding: '10px 20px',
+              fontSize: 16,
+              background: '#111',
+              color: '#fff',
+              borderRadius: 6,
+              marginRight: 10
+            }}
+          >
+            Login with Google
+          </button>
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))',
-            gap: 12,
-            marginTop: 20,
-          }}
-        >
-          {gallery.map((img, i) => (
+          <button
+            onClick={() => window.location.href = '/explore'}
+            style={{
+              padding: '10px 20px',
+              fontSize: 16,
+              borderRadius: 6,
+              border: "1px solid #ccc"
+            }}
+          >
+            Explore Creations
+          </button>
 
-            <img
-              key={i}
-              src={img.image_url}
-              style={{
-                width: '100%',
-                borderRadius: 8,
-                objectFit: 'cover',
-              }}
-            />
-
-          ))}
         </div>
 
       </main>
@@ -286,21 +263,23 @@ export default function Page() {
 
       <h1>Realify</h1>
 
-      <button onClick={logout}>Logout</button>
+      <div style={{ marginBottom: 20 }}>
 
-      <div style={{ margin: '20px 0' }}>
+        <button onClick={logout} style={{ marginRight: 10 }}>
+          Logout
+        </button>
 
         <button
-          onClick={() => (window.location.href = '/billing')}
-          style={{
-            marginBottom: 10,
-            background: '#111',
-            color: '#fff',
-            padding: '6px 12px',
-            borderRadius: 6,
-          }}
+          onClick={() => window.location.href = '/billing'}
+          style={{ marginRight: 10 }}
         >
           Manage Subscription
+        </button>
+
+        <button
+          onClick={() => window.location.href = '/explore'}
+        >
+          Explore
         </button>
 
       </div>
@@ -337,49 +316,6 @@ export default function Page() {
 
         </>
       )}
-
-      <h2 style={{ marginTop: 50 }}>Recent Creations</h2>
-
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))',
-          gap: 12,
-          marginTop: 20,
-        }}
-      >
-
-        {gallery.map((img, i) => (
-
-          <div key={i}>
-
-            <img
-              src={img.image_url}
-              style={{
-                width: '100%',
-                borderRadius: 8,
-                objectFit: 'cover',
-              }}
-            />
-
-            <button
-              onClick={() => remixPrompt(img.prompt)}
-              style={{
-                marginTop: 5,
-                width: "100%",
-                borderRadius: 6,
-                border: "1px solid #ccc",
-                padding: "5px"
-              }}
-            >
-              Remix
-            </button>
-
-          </div>
-
-        ))}
-
-      </div>
 
     </main>
   );
