@@ -1,4 +1,3 @@
-
 'use client';
 
 export const dynamic = 'force-dynamic';
@@ -25,6 +24,13 @@ const NANO_RATIOS = [
 ];
 
 const GPT_RATIOS = ['1:1', '3:2', '2:3'];
+
+const TRENDING_PROMPTS = [
+  "cinematic portrait of a cyberpunk samurai with neon lights",
+  "ultra realistic luxury modern mansion at sunset with palm trees",
+  "futuristic Lamborghini flying over a neon cyberpunk city",
+  "hyper realistic astronaut walking through Tokyo at night"
+];
 
 export default function Page() {
 
@@ -298,6 +304,30 @@ export default function Page() {
         >
           Explore
         </button>
+
+      </div>
+
+      <h2>Trending Prompts</h2>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 20 }}>
+
+        {TRENDING_PROMPTS.map((p, i) => (
+
+          <button
+            key={i}
+            onClick={() => setPrompt(p)}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 6,
+              border: "1px solid #ccc",
+              background: "#f7f7f7",
+              cursor: "pointer"
+            }}
+          >
+            {p}
+          </button>
+
+        ))}
 
       </div>
 
