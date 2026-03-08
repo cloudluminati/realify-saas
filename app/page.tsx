@@ -83,7 +83,6 @@ export default function Page() {
       }
 
       setHasSubscription(true);
-
     } catch {
       window.location.href = '/billing';
     }
@@ -115,16 +114,6 @@ export default function Page() {
   }
 
   async function generate() {
-    if (!user) {
-      alert('Login required.');
-      return;
-    }
-
-    if (!hasSubscription) {
-      window.location.href = '/billing';
-      return;
-    }
-
     if (!prompt.trim() || loading) return;
 
     setLoading(true);
@@ -166,7 +155,6 @@ export default function Page() {
       ]);
 
       setTimeout(fetchGallery, 2000);
-
     } catch {
       alert('Network error.');
     } finally {
@@ -176,14 +164,55 @@ export default function Page() {
 
   const ratios = model === 'nano' ? NANO_RATIOS : GPT_RATIOS;
 
+  /* -------------------------------------------------- */
+  /* LANDING PAGE (NOT LOGGED IN)                       */
+  /* -------------------------------------------------- */
+
   if (!user) {
     return (
       <main style={{ maxWidth: 900, margin: 'auto', padding: 32 }}>
-        <h1>Realify</h1>
-        <button onClick={login}>Login with Google</button>
+        <h1 style={{ fontSize: 42 }}>Realify</h1>
+
+        <p style={{ fontSize: 18 }}>
+          Create cinematic AI images instantly using advanced AI models.
+        </p>
+
+        <div style={{ marginTop: 40 }}>
+          <h2>Pricing</h2>
+
+          <div style={{ marginTop: 20 }}>
+            <h3>Starter</h3>
+            <p>$7.87 / week</p>
+            <p>200 credits per week</p>
+          </div>
+
+          <div style={{ marginTop: 20 }}>
+            <h3>Creator</h3>
+            <p>$29.99 / month</p>
+            <p>750 credits per month</p>
+          </div>
+        </div>
+
+        <button
+          onClick={login}
+          style={{
+            marginTop: 40,
+            padding: '10px 20px',
+            fontSize: 16,
+            background: '#111',
+            color: '#fff',
+            borderRadius: 6,
+          }}
+        >
+          Login with Google
+        </button>
       </main>
     );
   }
+
+  /* -------------------------------------------------- */
+  /* CHECKING SUBSCRIPTION                              */
+  /* -------------------------------------------------- */
 
   if (hasSubscription === null) {
     return (
@@ -192,6 +221,10 @@ export default function Page() {
       </main>
     );
   }
+
+  /* -------------------------------------------------- */
+  /* GENERATOR PAGE                                     */
+  /* -------------------------------------------------- */
 
   return (
     <main style={{ maxWidth: 900, margin: 'auto', padding: 32 }}>
