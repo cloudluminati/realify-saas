@@ -7,6 +7,8 @@ export default function ExplorePage() {
   const [images, setImages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [selectedImage, setSelectedImage] = useState<any | null>(null);
+
   async function loadImages() {
 
     try {
@@ -51,7 +53,7 @@ export default function ExplorePage() {
 
   return (
 
-    <main style={{ maxWidth: 1000, margin: "auto", padding: 40 }}>
+    <main style={{ maxWidth: 1100, margin: "auto", padding: 40 }}>
 
       <h1>Explore Creations</h1>
 
@@ -70,52 +72,107 @@ export default function ExplorePage() {
 
         {images.map((img, i) => (
 
-          <div key={i}>
-
-            <img
-              src={img.image_url}
-              style={{
-                width: "100%",
-                borderRadius: 8,
-                objectFit: "cover",
-              }}
-            />
-
-            {img.prompt && (
-
-              <>
-                <p
-                  style={{
-                    fontSize: 12,
-                    marginTop: 6,
-                    opacity: 0.7,
-                  }}
-                >
-                  {img.prompt}
-                </p>
-
-                <button
-                  onClick={() => remixPrompt(img.prompt)}
-                  style={{
-                    marginTop: 6,
-                    width: "100%",
-                    padding: "6px",
-                    borderRadius: 6,
-                    border: "1px solid #ccc",
-                    fontSize: 12
-                  }}
-                >
-                  Remix Prompt
-                </button>
-              </>
-
-            )}
-
-          </div>
+          <img
+            key={i}
+            src={img.image_url}
+            onClick={() => setSelectedImage(img)}
+            style={{
+              width: "100%",
+              borderRadius: 8,
+              objectFit: "cover",
+              cursor: "pointer",
+            }}
+          />
 
         ))}
 
       </div>
+
+      {selectedImage && (
+
+        <div
+          onClick={() => setSelectedImage(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.85)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 20
+          }}
+        >
+
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: 900,
+              width: "100%",
+              background: "#111",
+              padding: 20,
+              borderRadius: 10
+            }}
+          >
+
+            <img
+              src={selectedImage.image_url}
+              style={{
+                width: "100%",
+                borderRadius: 8
+              }}
+            />
+
+            {selectedImage.prompt && (
+
+              <p
+                style={{
+                  marginTop: 10,
+                  fontSize: 14,
+                  color: "#ccc"
+                }}
+              >
+                {selectedImage.prompt}
+              </p>
+
+            )}
+
+            <div style={{ marginTop: 12 }}>
+
+              <button
+                onClick={() => remixPrompt(selectedImage.prompt)}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: 6,
+                  border: "1px solid #444",
+                  background: "#222",
+                  color: "#fff",
+                  marginRight: 10
+                }}
+              >
+                Remix Prompt
+              </button>
+
+              <button
+                onClick={() => setSelectedImage(null)}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: 6,
+                  border: "1px solid #444",
+                  background: "#222",
+                  color: "#fff"
+                }}
+              >
+                Close
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )}
 
     </main>
 
