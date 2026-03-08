@@ -96,9 +96,7 @@ export default function Page() {
 
       const data = await res.json();
 
-      if (data?.images?.length) {
-        setGallery(data.images);
-      }
+      if (data?.images?.length) setGallery(data.images);
     } catch {}
   }
 
@@ -184,8 +182,6 @@ export default function Page() {
           Login with Google
         </button>
 
-        {/* PUBLIC GALLERY */}
-
         <h2 style={{ marginTop: 60 }}>Recent Creations</h2>
 
         <div
@@ -260,11 +256,47 @@ export default function Page() {
       {result && (
         <>
           <h2>Latest Result</h2>
-          <img src={result} style={{ maxWidth: '100%' }} />
+
+          <img
+            src={result}
+            style={{
+              maxWidth: '100%',
+              borderRadius: 10,
+              marginTop: 10
+            }}
+          />
+
+          <div style={{ marginTop: 15, display: 'flex', gap: 10 }}>
+            <a
+              href={result}
+              download="realify-image.png"
+              style={{
+                padding: "8px 14px",
+                background: "#111",
+                color: "#fff",
+                borderRadius: 6,
+                textDecoration: "none"
+              }}
+            >
+              Download Image
+            </a>
+
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(prompt);
+                alert("Prompt copied!");
+              }}
+              style={{
+                padding: "8px 14px",
+                borderRadius: 6,
+                border: "1px solid #ccc"
+              }}
+            >
+              Copy Prompt
+            </button>
+          </div>
         </>
       )}
-
-      {/* USER GALLERY */}
 
       <h2 style={{ marginTop: 50 }}>Recent Creations</h2>
 
