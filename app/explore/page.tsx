@@ -73,6 +73,7 @@ export default function ExplorePage() {
 
           <div
             key={i}
+            className="image-card"
             style={{
               position: "relative",
               borderRadius: 8,
@@ -85,29 +86,13 @@ export default function ExplorePage() {
               onClick={() => setSelectedImage(img)}
               style={{
                 width: "100%",
-                borderRadius: 8,
                 objectFit: "cover",
                 cursor: "pointer",
                 display: "block"
               }}
             />
 
-            {/* Hover overlay */}
-
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                background: "rgba(0,0,0,0.55)",
-                opacity: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 10,
-                transition: "opacity 0.2s"
-              }}
-              className="hover-actions"
-            >
+            <div className="hover-actions">
 
               <button
                 onClick={() => remixPrompt(img.prompt)}
@@ -146,8 +131,6 @@ export default function ExplorePage() {
         ))}
 
       </div>
-
-      {/* Image modal */}
 
       {selectedImage && (
 
@@ -237,7 +220,23 @@ export default function ExplorePage() {
 
       <style jsx>{`
 
-        div:hover > .hover-actions {
+        .image-card {
+          position: relative;
+        }
+
+        .hover-actions {
+          position: absolute;
+          inset: 0;
+          background: rgba(0,0,0,0.55);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          opacity: 0;
+          transition: opacity 0.2s;
+        }
+
+        .image-card:hover .hover-actions {
           opacity: 1;
         }
 
