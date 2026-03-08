@@ -6,7 +6,6 @@ export default function ExplorePage() {
 
   const [images, setImages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
   const [selectedImage, setSelectedImage] = useState<any | null>(null);
 
   async function loadImages() {
@@ -72,21 +71,83 @@ export default function ExplorePage() {
 
         {images.map((img, i) => (
 
-          <img
+          <div
             key={i}
-            src={img.image_url}
-            onClick={() => setSelectedImage(img)}
             style={{
-              width: "100%",
+              position: "relative",
               borderRadius: 8,
-              objectFit: "cover",
-              cursor: "pointer",
+              overflow: "hidden"
             }}
-          />
+          >
+
+            <img
+              src={img.image_url}
+              onClick={() => setSelectedImage(img)}
+              style={{
+                width: "100%",
+                borderRadius: 8,
+                objectFit: "cover",
+                cursor: "pointer",
+                display: "block"
+              }}
+            />
+
+            {/* Hover overlay */}
+
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "rgba(0,0,0,0.55)",
+                opacity: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                transition: "opacity 0.2s"
+              }}
+              className="hover-actions"
+            >
+
+              <button
+                onClick={() => remixPrompt(img.prompt)}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 6,
+                  border: "1px solid #ccc",
+                  background: "#111",
+                  color: "#fff",
+                  fontSize: 12
+                }}
+              >
+                Remix
+              </button>
+
+              <a
+                href={img.image_url}
+                download="realify-image.png"
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 6,
+                  border: "1px solid #ccc",
+                  background: "#111",
+                  color: "#fff",
+                  fontSize: 12,
+                  textDecoration: "none"
+                }}
+              >
+                Download
+              </a>
+
+            </div>
+
+          </div>
 
         ))}
 
       </div>
+
+      {/* Image modal */}
 
       {selectedImage && (
 
@@ -173,6 +234,14 @@ export default function ExplorePage() {
         </div>
 
       )}
+
+      <style jsx>{`
+
+        div:hover > .hover-actions {
+          opacity: 1;
+        }
+
+      `}</style>
 
     </main>
 
