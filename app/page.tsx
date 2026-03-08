@@ -1,3 +1,4 @@
+
 'use client';
 
 export const dynamic = 'force-dynamic';
@@ -127,6 +128,22 @@ export default function Page() {
     }
 
   }, [user]);
+
+  /* -----------------------------
+     AUTO LOAD PROMPT FROM URL
+  ----------------------------- */
+
+  useEffect(() => {
+
+    const params = new URLSearchParams(window.location.search);
+
+    const promptFromUrl = params.get("prompt");
+
+    if (promptFromUrl) {
+      setPrompt(promptFromUrl);
+    }
+
+  }, []);
 
   function handleImageUpload(files: FileList | null) {
 
