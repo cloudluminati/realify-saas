@@ -8,18 +8,9 @@ export async function GET() {
   try {
     const supabase = await getSupabaseServer();
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ images: [] });
-    }
-
     const { data: images } = await supabase
-      .from("images")
-      .select("*")
-      .eq("user_id", user.id)
+      .from("image_generation_history")
+      .select("image_url, prompt, created_at")
       .order("created_at", { ascending: false })
       .limit(50);
 
@@ -35,4 +26,3 @@ export async function GET() {
     });
   }
 }
-
