@@ -92,19 +92,21 @@ export default function Page() {
     try {
       const res = await fetch('/api/gallery', {
         cache: 'no-store',
-        credentials: 'include',
       });
 
       const data = await res.json();
 
-      if (data?.images?.length) setGallery(data.images);
+      if (data?.images?.length) {
+        setGallery(data.images);
+      }
     } catch {}
   }
 
   useEffect(() => {
+    fetchGallery();
+
     if (user) {
       checkSubscription();
-      fetchGallery();
     }
   }, [user]);
 
@@ -138,12 +140,6 @@ export default function Page() {
       const data = await res.json();
 
       if (!res.ok) {
-        if (res.status === 403)
-          return alert(data.error || 'Usage limit reached.');
-
-        if (res.status === 503)
-          return alert('Service temporarily unavailable.');
-
         return alert('Generation failed.');
       }
 
@@ -154,7 +150,6 @@ export default function Page() {
         ...prev,
       ]);
 
-      setTimeout(fetchGallery, 2000);
     } catch {
       alert('Network error.');
     } finally {
@@ -164,9 +159,7 @@ export default function Page() {
 
   const ratios = model === 'nano' ? NANO_RATIOS : GPT_RATIOS;
 
-  /* -------------------------------------------------- */
-  /* LANDING PAGE (NOT LOGGED IN)                       */
-  /* -------------------------------------------------- */
+  /* LANDING PAGE */
 
   if (!user) {
     return (
@@ -176,22 +169,6 @@ export default function Page() {
         <p style={{ fontSize: 18 }}>
           Create cinematic AI images instantly using advanced AI models.
         </p>
-
-        <div style={{ marginTop: 40 }}>
-          <h2>Pricing</h2>
-
-          <div style={{ marginTop: 20 }}>
-            <h3>Starter</h3>
-            <p>$7.87 / week</p>
-            <p>200 credits per week</p>
-          </div>
-
-          <div style={{ marginTop: 20 }}>
-            <h3>Creator</h3>
-            <p>$29.99 / month</p>
-            <p>750 credits per month</p>
-          </div>
-        </div>
 
         <button
           onClick={login}
@@ -206,13 +183,34 @@ export default function Page() {
         >
           Login with Google
         </button>
+
+        {/* PUBLIC GALLERY */}
+
+        <h2 style={{ marginTop: 60 }}>Recent Creations</h2>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))',
+            gap: 12,
+            marginTop: 20,
+          }}
+        >
+          {gallery.map((img, i) => (
+            <img
+              key={i}
+              src={img.image_url}
+              style={{
+                width: '100%',
+                borderRadius: 8,
+                objectFit: 'cover',
+              }}
+            />
+          ))}
+        </div>
       </main>
     );
   }
-
-  /* -------------------------------------------------- */
-  /* CHECKING SUBSCRIPTION                              */
-  /* -------------------------------------------------- */
 
   if (hasSubscription === null) {
     return (
@@ -222,9 +220,7 @@ export default function Page() {
     );
   }
 
-  /* -------------------------------------------------- */
-  /* GENERATOR PAGE                                     */
-  /* -------------------------------------------------- */
+  /* GENERATOR */
 
   return (
     <main style={{ maxWidth: 900, margin: 'auto', padding: 32 }}>
@@ -249,56 +245,12 @@ export default function Page() {
 
       <h2>Generate</h2>
 
-      <select
-        value={model}
-        onChange={(e) => {
-          const newModel = e.target.value as ModelChoice;
-          setModel(newModel);
-          setAspectRatio(
-            newModel === 'nano' ? 'match_input_image' : '1:1'
-          );
-        }}
-      >
-        <option value="nano">Nano</option>
-        <option value="gpt">GPT</option>
-      </select>
-
-      {model === 'gpt' && (
-        <select
-          value={quality}
-          onChange={(e) =>
-            setQuality(e.target.value as QualityChoice)
-          }
-        >
-          <option value="auto">Auto</option>
-          <option value="low">Low</option>
-          <option value="medium">Medium</option>
-          <option value="high">High</option>
-        </select>
-      )}
-
-      <select
-        value={aspectRatio}
-        onChange={(e) => setAspectRatio(e.target.value)}
-      >
-        {ratios.map((r) => (
-          <option key={r}>{r}</option>
-        ))}
-      </select>
-
       <textarea
         rows={4}
         style={{ width: '100%', marginTop: 16 }}
         placeholder="Prompt..."
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
-      />
-
-      <input
-        type="file"
-        accept="image/*"
-        multiple
-        onChange={(e) => handleImageUpload(e.target.files)}
       />
 
       <button onClick={generate}>
@@ -311,6 +263,31 @@ export default function Page() {
           <img src={result} style={{ maxWidth: '100%' }} />
         </>
       )}
+
+      {/* USER GALLERY */}
+
+      <h2 style={{ marginTop: 50 }}>Recent Creations</h2>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))',
+          gap: 12,
+          marginTop: 20,
+        }}
+      >
+        {gallery.map((img, i) => (
+          <img
+            key={i}
+            src={img.image_url}
+            style={{
+              width: '100%',
+              borderRadius: 8,
+              objectFit: 'cover',
+            }}
+          />
+        ))}
+      </div>
     </main>
   );
 }
