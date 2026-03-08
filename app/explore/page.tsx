@@ -11,20 +11,26 @@ export default function ExplorePage() {
 
     try {
 
-      const res = await fetch("/api/gallery", {
+      const res = await fetch("/api/explore", {
         cache: "no-store",
       });
 
       const data = await res.json();
 
       if (data?.images) {
-
         setImages(data.images);
       }
 
     } catch {}
 
     setLoading(false);
+  }
+
+  function remixPrompt(prompt: string) {
+
+    const encoded = encodeURIComponent(prompt);
+
+    window.location.href = `/?prompt=${encoded}`;
   }
 
   useEffect(() => {
@@ -77,15 +83,31 @@ export default function ExplorePage() {
 
             {img.prompt && (
 
-              <p
-                style={{
-                  fontSize: 12,
-                  marginTop: 6,
-                  opacity: 0.7,
-                }}
-              >
-                {img.prompt}
-              </p>
+              <>
+                <p
+                  style={{
+                    fontSize: 12,
+                    marginTop: 6,
+                    opacity: 0.7,
+                  }}
+                >
+                  {img.prompt}
+                </p>
+
+                <button
+                  onClick={() => remixPrompt(img.prompt)}
+                  style={{
+                    marginTop: 6,
+                    width: "100%",
+                    padding: "6px",
+                    borderRadius: 6,
+                    border: "1px solid #ccc",
+                    fontSize: 12
+                  }}
+                >
+                  Remix Prompt
+                </button>
+              </>
 
             )}
 
