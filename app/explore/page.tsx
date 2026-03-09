@@ -7,6 +7,7 @@ export default function ExplorePage() {
   const [images, setImages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState<any | null>(null);
+  const [likes, setLikes] = useState<Record<string, number>>({});
 
   async function loadImages() {
 
@@ -19,12 +20,49 @@ export default function ExplorePage() {
       const data = await res.json();
 
       if (data?.images) {
+
         setImages(data.images);
+
+        const ids = data.images.map((i: any) => i.id);
+
+        const likeRes = await fetch("/api/likes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image_ids: ids }),
+        });
+
+        const likeData = await likeRes.json();
+
+        if (likeData?.counts) {
+          setLikes(likeData.counts);
+        }
+
       }
 
     } catch {}
 
     setLoading(false);
+  }
+
+  async function likeImage(image_id: string) {
+
+    try {
+
+      await fetch("/api/like", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ image_id })
+      });
+
+      setLikes((prev) => ({
+        ...prev,
+        [image_id]: (prev[image_id] || 0) + 1
+      }));
+
+    } catch {}
+
   }
 
   function remixPrompt(prompt: string) {
@@ -93,6 +131,20 @@ export default function ExplorePage() {
             />
 
             <div className="hover-actions">
+
+              <button
+                onClick={() => likeImage(img.id)}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 6,
+                  border: "1px solid #ccc",
+                  background: "#e63946",
+                  color: "#fff",
+                  fontSize: 12
+                }}
+              >
+                ❤️ {likes[img.id] || 0}
+              </button>
 
               <button
                 onClick={() => remixPrompt(img.prompt)}
