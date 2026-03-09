@@ -11,7 +11,7 @@ export async function GET() {
 
     const { data: images } = await supabase
       .from("image_generation_history")
-      .select("image_url,prompt,created_at")
+      .select("id,image_url,prompt,created_at")
       .order("created_at", { ascending: false })
       .limit(100);
 
