@@ -75,6 +75,25 @@ export default function ExplorePage() {
     window.location.href = `/?prompt=${encoded}`;
   }
 
+  function generateThis(prompt: string) {
+
+    const encoded = encodeURIComponent(prompt);
+
+    window.location.href = `/?prompt=${encoded}`;
+  }
+
+  async function copyPrompt(prompt: string) {
+
+    try {
+
+      await navigator.clipboard.writeText(prompt);
+
+      alert("Prompt copied!");
+
+    } catch {}
+
+  }
+
   useEffect(() => {
 
     loadImages(sort);
@@ -100,8 +119,6 @@ export default function ExplorePage() {
       <p style={{ opacity: 0.7 }}>
         See what others are creating with Realify.
       </p>
-
-      {/* SORT BUTTONS */}
 
       <div style={{ marginTop: 20, marginBottom: 10 }}>
 
@@ -276,6 +293,34 @@ export default function ExplorePage() {
                 }}
               >
                 Remix Prompt
+              </button>
+
+              <button
+                onClick={() => copyPrompt(selectedImage.prompt)}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: 6,
+                  border: "1px solid #444",
+                  background: "#222",
+                  color: "#fff",
+                  marginRight: 10
+                }}
+              >
+                Copy Prompt
+              </button>
+
+              <button
+                onClick={() => generateThis(selectedImage.prompt)}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: 6,
+                  border: "1px solid #444",
+                  background: "#2a9d8f",
+                  color: "#fff",
+                  marginRight: 10
+                }}
+              >
+                Generate This
               </button>
 
               <button
