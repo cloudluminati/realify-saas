@@ -8,12 +8,15 @@ export default function ExplorePage() {
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState<any | null>(null);
   const [likes, setLikes] = useState<Record<string, number>>({});
+  const [sort, setSort] = useState("new");
 
-  async function loadImages() {
+  async function loadImages(sortType: string) {
+
+    setLoading(true);
 
     try {
 
-      const res = await fetch("/api/explore", {
+      const res = await fetch(`/api/explore?sort=${sortType}`, {
         cache: "no-store",
       });
 
@@ -74,9 +77,9 @@ export default function ExplorePage() {
 
   useEffect(() => {
 
-    loadImages();
+    loadImages(sort);
 
-  }, []);
+  }, [sort]);
 
   if (loading) {
 
@@ -98,12 +101,38 @@ export default function ExplorePage() {
         See what others are creating with Realify.
       </p>
 
+      {/* SORT BUTTONS */}
+
+      <div style={{ marginTop: 20, marginBottom: 10 }}>
+
+        <button
+          onClick={() => setSort("new")}
+          style={{ marginRight: 10 }}
+        >
+          Newest
+        </button>
+
+        <button
+          onClick={() => setSort("trending")}
+          style={{ marginRight: 10 }}
+        >
+          Trending
+        </button>
+
+        <button
+          onClick={() => setSort("liked")}
+        >
+          Most Liked
+        </button>
+
+      </div>
+
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))",
           gap: 14,
-          marginTop: 30,
+          marginTop: 20,
         }}
       >
 
