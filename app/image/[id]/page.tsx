@@ -9,7 +9,7 @@ export default async function ImagePage({ params }: any) {
 
   const { data } = await supabase
     .from("image_generation_history")
-    .select("image_url,prompt,created_at")
+    .select("id,image_url,prompt,created_at")
     .eq("id", params.id)
     .single();
 
@@ -23,22 +23,41 @@ export default async function ImagePage({ params }: any) {
 
     <main style={{ maxWidth: 900, margin: "auto", padding: 40 }}>
 
-      <h1>Realify Creation</h1>
+      <h1 style={{ fontSize: 36 }}>Realify Creation</h1>
+
+      <p style={{ opacity: 0.6 }}>
+        AI generated image created with Realify
+      </p>
 
       <img
         src={data.image_url}
         style={{
           width: "100%",
           borderRadius: 12,
-          marginTop: 20
+          marginTop: 30
         }}
       />
 
       {data.prompt && (
 
-        <p style={{ marginTop: 20, fontSize: 16 }}>
-          <strong>Prompt:</strong> {data.prompt}
-        </p>
+        <div
+          style={{
+            marginTop: 30,
+            background: "#f7f7f7",
+            padding: 16,
+            borderRadius: 8
+          }}
+        >
+
+          <p style={{ fontWeight: "bold", marginBottom: 6 }}>
+            Prompt
+          </p>
+
+          <p style={{ fontSize: 15 }}>
+            {data.prompt}
+          </p>
+
+        </div>
 
       )}
 
@@ -47,7 +66,7 @@ export default async function ImagePage({ params }: any) {
         <a
           href={`/?prompt=${encodedPrompt}`}
           style={{
-            padding: "10px 18px",
+            padding: "12px 20px",
             background: "#111",
             color: "#fff",
             borderRadius: 6,
@@ -61,13 +80,13 @@ export default async function ImagePage({ params }: any) {
         <a
           href="/"
           style={{
-            padding: "10px 18px",
+            padding: "12px 20px",
             border: "1px solid #ccc",
             borderRadius: 6,
             textDecoration: "none"
           }}
         >
-          Create Your Own
+          Create Your Own Images
         </a>
 
       </div>
