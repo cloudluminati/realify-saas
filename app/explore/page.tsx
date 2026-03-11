@@ -16,7 +16,13 @@ export default function ExplorePage() {
 
     try {
 
-      const res = await fetch(`/api/explore?sort=${sortType}`, {
+      let endpoint = "/api/explore?sort=" + sortType;
+
+      if (sortType === "following") {
+        endpoint = "/api/following-feed";
+      }
+
+      const res = await fetch(endpoint, {
         cache: "no-store",
       });
 
@@ -137,10 +143,10 @@ export default function ExplorePage() {
       <div style={{ marginTop: 20, marginBottom: 10 }}>
 
         <button
-          onClick={() => setSort("new")}
+          onClick={() => setSort("following")}
           style={{ marginRight: 10 }}
         >
-          Newest
+          Following
         </button>
 
         <button
@@ -148,6 +154,13 @@ export default function ExplorePage() {
           style={{ marginRight: 10 }}
         >
           Trending
+        </button>
+
+        <button
+          onClick={() => setSort("new")}
+          style={{ marginRight: 10 }}
+        >
+          Newest
         </button>
 
         <button
