@@ -94,6 +94,20 @@ export default function ExplorePage() {
 
   }
 
+  async function shareImage(image_id: string) {
+
+    try {
+
+      const url = `${window.location.origin}/image/${image_id}`;
+
+      await navigator.clipboard.writeText(url);
+
+      alert("Share link copied!");
+
+    } catch {}
+
+  }
+
   useEffect(() => {
 
     loadImages(sort);
@@ -204,6 +218,20 @@ export default function ExplorePage() {
                 }}
               >
                 Remix
+              </button>
+
+              <button
+                onClick={() => shareImage(img.id)}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 6,
+                  border: "1px solid #ccc",
+                  background: "#457b9d",
+                  color: "#fff",
+                  fontSize: 12
+                }}
+              >
+                Share
               </button>
 
               <a
@@ -321,6 +349,20 @@ export default function ExplorePage() {
                 }}
               >
                 Generate This
+              </button>
+
+              <button
+                onClick={() => shareImage(selectedImage.id)}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: 6,
+                  border: "1px solid #444",
+                  background: "#457b9d",
+                  color: "#fff",
+                  marginRight: 10
+                }}
+              >
+                Share
               </button>
 
               <button
