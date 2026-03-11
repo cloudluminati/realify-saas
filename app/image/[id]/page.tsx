@@ -55,6 +55,12 @@ export default async function ImagePage({ params }: any) {
 
   const encodedPrompt = encodeURIComponent(data.prompt || "");
 
+  const tweetText = encodeURIComponent(
+    `I created this AI image with Realify\n\n${process.env.NEXT_PUBLIC_SITE_URL || ""}/image/${data.id}`
+  );
+
+  const tweetUrl = `https://twitter.com/intent/tweet?text=${tweetText}`;
+
   return (
 
     <main style={{ maxWidth: 900, margin: "auto", padding: 40 }}>
@@ -119,10 +125,25 @@ export default async function ImagePage({ params }: any) {
             padding: "12px 20px",
             border: "1px solid #ccc",
             borderRadius: 6,
-            textDecoration: "none"
+            textDecoration: "none",
+            marginRight: 10
           }}
         >
           Create Your Own Images
+        </a>
+
+        <a
+          href={tweetUrl}
+          target="_blank"
+          style={{
+            padding: "12px 20px",
+            background: "#1DA1F2",
+            color: "#fff",
+            borderRadius: 6,
+            textDecoration: "none"
+          }}
+        >
+          Share on X
         </a>
 
       </div>
