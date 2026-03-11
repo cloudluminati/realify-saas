@@ -216,6 +216,39 @@ export default function Page() {
 
       <h1>Realify Generator</h1>
 
+      {/* NAV */}
+
+      <div style={{ marginBottom: 20 }}>
+
+        <button
+          onClick={logout}
+          style={{ marginRight: 10 }}
+        >
+          Logout
+        </button>
+
+        <button
+          onClick={() => window.location.href = '/billing'}
+          style={{ marginRight: 10 }}
+        >
+          Billing
+        </button>
+
+        <button
+          onClick={() => window.location.href = '/explore'}
+          style={{ marginRight: 10 }}
+        >
+          Explore
+        </button>
+
+        <button
+          onClick={() => window.location.href = '/history'}
+        >
+          History
+        </button>
+
+      </div>
+
       {/* MODEL */}
 
       <div style={{ marginTop: 20 }}>
@@ -315,8 +348,6 @@ export default function Page() {
         {loading ? 'Generating...' : 'Generate Image'}
 
       </button>
-
-      {/* RESULT */}
 
       {result && (
 
