@@ -3,6 +3,42 @@ import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
+export async function generateMetadata({ params }: any) {
+
+  const supabase = await getSupabaseServer();
+
+  const { data } = await supabase
+    .from("image_generation_history")
+    .select("image_url,prompt")
+    .eq("id", params.id)
+    .single();
+
+  if (!data) {
+    return {};
+  }
+
+  return {
+    title: "Realify AI Creation",
+    description: data.prompt || "AI generated image created with Realify",
+    openGraph: {
+      title: "Realify AI",
+      description: data.prompt || "AI generated image created with Realify",
+      images: [
+        {
+          url: data.image_url
+        }
+      ]
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "Realify AI",
+      description: data.prompt || "AI generated image created with Realify",
+      images: [data.image_url]
+    }
+  };
+
+}
+
 export default async function ImagePage({ params }: any) {
 
   const supabase = await getSupabaseServer();
