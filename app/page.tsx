@@ -48,6 +48,8 @@ export default function Page() {
   const [gallery, setGallery] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
+
   async function checkAuth() {
 
     const {
@@ -110,28 +112,31 @@ export default function Page() {
     }
   }
 
-  async function fetchGallery() {
+  async function loadLeaderboard() {
 
     try {
 
-      const res = await fetch('/api/gallery', {
-        cache: 'no-store',
+      const res = await fetch("/api/prompts", {
+        cache: "no-store"
       });
 
       const data = await res.json();
 
-      if (data?.images?.length) setGallery(data.images);
+      if (data?.prompts) {
+        setLeaderboard(data.prompts);
+      }
 
     } catch {}
+
   }
 
   useEffect(() => {
 
-    fetchGallery();
-
     if (user) {
       checkSubscription();
     }
+
+    loadLeaderboard();
 
   }, [user]);
 
@@ -213,13 +218,6 @@ export default function Page() {
     }
   }
 
-  const ratios =
-    model === 'nano'
-      ? NANO_RATIOS
-      : GPT_RATIOS;
-
-  /* LANDING PAGE */
-
   if (!user) {
 
     return (
@@ -278,8 +276,6 @@ export default function Page() {
     );
   }
 
-  /* GENERATOR */
-
   return (
 
     <main style={{ maxWidth: 900, margin: 'auto', padding: 32 }}>
@@ -304,6 +300,28 @@ export default function Page() {
         >
           Explore
         </button>
+
+      </div>
+
+      <h2>🔥 Top Prompts</h2>
+
+      <div style={{ marginBottom: 25 }}>
+
+        {leaderboard.map((p, i) => (
+
+          <div
+            key={i}
+            onClick={() => setPrompt(p.prompt)}
+            style={{
+              cursor: "pointer",
+              padding: "6px 10px",
+              borderBottom: "1px solid #eee"
+            }}
+          >
+            {i + 1}. {p.prompt}
+          </div>
+
+        ))}
 
       </div>
 
