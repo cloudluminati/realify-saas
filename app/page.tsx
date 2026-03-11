@@ -25,13 +25,6 @@ const NANO_RATIOS = [
 
 const GPT_RATIOS = ['1:1', '3:2', '2:3'];
 
-const TRENDING_PROMPTS = [
-  "cinematic portrait of a cyberpunk samurai with neon lights",
-  "ultra realistic luxury modern mansion at sunset with palm trees",
-  "futuristic Lamborghini flying over a neon cyberpunk city",
-  "hyper realistic astronaut walking through Tokyo at night"
-];
-
 export default function Page() {
 
   const [user, setUser] = useState<any>(null);
@@ -45,10 +38,7 @@ export default function Page() {
   const [images, setImages] = useState<File[]>([]);
   const [result, setResult] = useState<string | null>(null);
 
-  const [gallery, setGallery] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-
-  const [leaderboard, setLeaderboard] = useState<any[]>([]);
 
   async function checkAuth() {
 
@@ -79,7 +69,6 @@ export default function Page() {
 
     const { data: listener } =
       supabase.auth.onAuthStateChange(() => {
-
         checkAuth();
       });
 
@@ -99,7 +88,6 @@ export default function Page() {
       const data = await res.json();
 
       if (!data.active) {
-
         window.location.href = '/billing';
         return;
       }
@@ -109,24 +97,8 @@ export default function Page() {
     } catch {
 
       window.location.href = '/billing';
+
     }
-  }
-
-  async function loadLeaderboard() {
-
-    try {
-
-      const res = await fetch("/api/prompts", {
-        cache: "no-store"
-      });
-
-      const data = await res.json();
-
-      if (data?.prompts) {
-        setLeaderboard(data.prompts);
-      }
-
-    } catch {}
 
   }
 
@@ -136,31 +108,14 @@ export default function Page() {
       checkSubscription();
     }
 
-    loadLeaderboard();
-
   }, [user]);
-
-  /* -----------------------------
-     AUTO LOAD PROMPT FROM URL
-  ----------------------------- */
-
-  useEffect(() => {
-
-    const params = new URLSearchParams(window.location.search);
-
-    const promptFromUrl = params.get("prompt");
-
-    if (promptFromUrl) {
-      setPrompt(promptFromUrl);
-    }
-
-  }, []);
 
   function handleImageUpload(files: FileList | null) {
 
     if (!files) return;
 
     setImages(Array.from(files));
+
   }
 
   async function generate() {
@@ -185,7 +140,6 @@ export default function Page() {
           : '/api/gpt';
 
       const res = await fetch(endpoint, {
-
         method: 'POST',
         body: formData,
         credentials: 'include',
@@ -194,29 +148,25 @@ export default function Page() {
       const data = await res.json();
 
       if (!res.ok) {
-
-        return alert('Generation failed.');
+        alert('Generation failed.');
+        return;
       }
 
       setResult(data.image);
 
-      setGallery((prev) => [
-
-        { image_url: data.image, prompt, created_at: Date.now() },
-
-        ...prev,
-      ]);
-
     } catch {
 
       alert('Network error.');
-    }
 
-    finally {
+    } finally {
 
       setLoading(false);
+
     }
+
   }
+
+  const ratios = model === 'nano' ? NANO_RATIOS : GPT_RATIOS;
 
   if (!user) {
 
@@ -227,161 +177,166 @@ export default function Page() {
         <h1 style={{ fontSize: 42 }}>Realify</h1>
 
         <p style={{ fontSize: 18 }}>
-          Create cinematic AI images instantly using advanced AI models.
+          Create cinematic AI images instantly.
         </p>
 
-        <div style={{ marginTop: 20 }}>
-
-          <button
-            onClick={login}
-            style={{
-              padding: '10px 20px',
-              fontSize: 16,
-              background: '#111',
-              color: '#fff',
-              borderRadius: 6,
-              marginRight: 10
-            }}
-          >
-            Login with Google
-          </button>
-
-          <button
-            onClick={() => window.location.href = '/explore'}
-            style={{
-              padding: '10px 20px',
-              fontSize: 16,
-              borderRadius: 6,
-              border: "1px solid #ccc"
-            }}
-          >
-            Explore Creations
-          </button>
-
-        </div>
+        <button
+          onClick={login}
+          style={{
+            padding: '10px 20px',
+            background: '#111',
+            color: '#fff',
+            borderRadius: 6
+          }}
+        >
+          Login with Google
+        </button>
 
       </main>
+
     );
+
   }
 
   if (hasSubscription === null) {
 
     return (
 
-      <main style={{ maxWidth: 900, margin: 'auto', padding: 32 }}>
-
-        <h1>Checking subscription...</h1>
-
+      <main style={{ padding: 40 }}>
+        Checking subscription...
       </main>
+
     );
+
   }
 
   return (
 
     <main style={{ maxWidth: 900, margin: 'auto', padding: 32 }}>
 
-      <h1>Realify</h1>
+      <h1>Realify Generator</h1>
 
-      <div style={{ marginBottom: 20 }}>
+      {/* MODEL */}
 
-        <button onClick={logout} style={{ marginRight: 10 }}>
-          Logout
-        </button>
+      <div style={{ marginTop: 20 }}>
 
-        <button
-          onClick={() => window.location.href = '/billing'}
-          style={{ marginRight: 10 }}
+        <label>Model</label>
+
+        <select
+          value={model}
+          onChange={(e) => setModel(e.target.value as ModelChoice)}
         >
-          Manage Subscription
-        </button>
 
-        <button
-          onClick={() => window.location.href = '/explore'}
+          <option value="nano">Nano Banana</option>
+          <option value="gpt">GPT Image</option>
+
+        </select>
+
+      </div>
+
+      {/* QUALITY */}
+
+      <div style={{ marginTop: 20 }}>
+
+        <label>Quality</label>
+
+        <select
+          value={quality}
+          onChange={(e) => setQuality(e.target.value as QualityChoice)}
         >
-          Explore
-        </button>
+
+          <option value="auto">Auto</option>
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+
+        </select>
 
       </div>
 
-      <h2>🔥 Top Prompts</h2>
+      {/* ASPECT RATIO */}
 
-      <div style={{ marginBottom: 25 }}>
+      <div style={{ marginTop: 20 }}>
 
-        {leaderboard.map((p, i) => (
+        <label>Aspect Ratio</label>
 
-          <div
-            key={i}
-            onClick={() => setPrompt(p.prompt)}
-            style={{
-              cursor: "pointer",
-              padding: "6px 10px",
-              borderBottom: "1px solid #eee"
-            }}
-          >
-            {i + 1}. {p.prompt}
-          </div>
+        <select
+          value={aspectRatio}
+          onChange={(e) => setAspectRatio(e.target.value)}
+        >
 
-        ))}
+          {ratios.map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
 
-      </div>
-
-      <h2>Trending Prompts</h2>
-
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 20 }}>
-
-        {TRENDING_PROMPTS.map((p, i) => (
-
-          <button
-            key={i}
-            onClick={() => setPrompt(p)}
-            style={{
-              padding: "6px 10px",
-              borderRadius: 6,
-              border: "1px solid #ccc",
-              background: "#f7f7f7",
-              cursor: "pointer"
-            }}
-          >
-            {p}
-          </button>
-
-        ))}
+        </select>
 
       </div>
 
-      <h2>Generate</h2>
+      {/* IMAGE UPLOAD */}
+
+      <div style={{ marginTop: 20 }}>
+
+        <label>Reference Images</label>
+
+        <input
+          type="file"
+          multiple
+          onChange={(e) => handleImageUpload(e.target.files)}
+        />
+
+      </div>
+
+      {/* PROMPT */}
 
       <textarea
         rows={4}
-        style={{ width: '100%', marginTop: 16 }}
-        placeholder="Prompt..."
+        style={{ width: '100%', marginTop: 20 }}
+        placeholder="Describe your image..."
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
       />
 
-      <button onClick={generate}>
+      {/* GENERATE */}
 
-        {loading ? 'Generating...' : 'Generate'}
+      <button
+        onClick={generate}
+        style={{
+          marginTop: 20,
+          padding: "12px 20px",
+          background: "#111",
+          color: "#fff",
+          borderRadius: 6
+        }}
+      >
+
+        {loading ? 'Generating...' : 'Generate Image'}
 
       </button>
 
+      {/* RESULT */}
+
       {result && (
 
-        <>
-          <h2>Latest Result</h2>
+        <div style={{ marginTop: 30 }}>
+
+          <h2>Result</h2>
 
           <img
             src={result}
             style={{
-              maxWidth: '100%',
-              borderRadius: 10,
-              marginTop: 10
+              width: "100%",
+              borderRadius: 10
             }}
           />
 
-        </>
+        </div>
+
       )}
 
     </main>
+
   );
 }
