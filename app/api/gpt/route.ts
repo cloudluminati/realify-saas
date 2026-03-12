@@ -15,6 +15,19 @@ const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN!,
 });
 
+/* -------------------------------------------------------------------------- */
+/* RATE LIMITING SYSTEM                                                       */
+/* -------------------------------------------------------------------------- */
+
+const lastRequestMap = new Map<string, number>();
+const REQUEST_COOLDOWN = 2000; // 2 seconds
+
+const generationWindow = new Map<string, number[]>();
+const MAX_GENERATIONS = 7;
+const WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+
+/* -------------------------------------------------------------------------- */
+
 const GPT_ALLOWED_RATIOS = new Set([
   "1:1",
   "3:2",
@@ -85,10 +98,8 @@ const extractBuffer = (v: any): Buffer | null => {
 
 export async function POST(req: Request) {
   try {
-    // ✅ FIX: Get Supabase server correctly
     const supabaseServer = await getSupabaseServer();
 
-    // ⭐ AUTH USER
     const {
       data: { user },
     } = await supabaseServer.auth.getUser();
@@ -102,14 +113,51 @@ export async function POST(req: Request) {
 
     const user_id = user.id;
 
-    // ⭐ CHECK ACTIVE SUBSCRIPTION
+    /* ---------------------------------------------------------------------- */
+    /* 2 SECOND COOLDOWN                                                      */
+    /* ---------------------------------------------------------------------- */
+
+    const now = Date.now();
+    const lastRequest = lastRequestMap.get(user_id);
+
+    if (lastRequest && now - lastRequest < REQUEST_COOLDOWN) {
+      return NextResponse.json(
+        { error: "Too many requests" },
+        { status: 429 }
+      );
+    }
+
+    lastRequestMap.set(user_id, now);
+
+    /* ---------------------------------------------------------------------- */
+    /* 7 GENERATIONS PER 5 MINUTES LIMIT                                      */
+    /* ---------------------------------------------------------------------- */
+
+    const userHistory = generationWindow.get(user_id) || [];
+
+    const recent = userHistory.filter(
+      (timestamp) => now - timestamp < WINDOW_MS
+    );
+
+    if (recent.length >= MAX_GENERATIONS) {
+      return NextResponse.json(
+        { error: "Generation limit reached. Please wait a few minutes." },
+        { status: 429 }
+      );
+    }
+
+    recent.push(now);
+    generationWindow.set(user_id, recent);
+
+    /* ---------------------------------------------------------------------- */
+
     const { data: sub } = await supabaseServer
       .from("subscriptions")
       .select("status")
       .eq("user_id", user_id)
-      .eq("status", "active")
+      .in("status", ["active", "canceling"])
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (!sub) {
       return NextResponse.json(
@@ -140,7 +188,6 @@ export async function POST(req: Request) {
 
     const cost = UNIT_COSTS.gpt[quality];
 
-    // ⭐ CREDIT CHECK
     if (!(await canConsume(cost))) {
       return NextResponse.json(
         { error: "limit_reached" },
@@ -241,4 +288,3 @@ export async function POST(req: Request) {
     );
   }
 }
-
