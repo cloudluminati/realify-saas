@@ -16,11 +16,15 @@ const replicate = new Replicate({
 });
 
 /* -------------------------------------------------------------------------- */
-/*                          SIMPLE RATE LIMIT GUARD                           */
+/* RATE LIMITING SYSTEM                                                       */
 /* -------------------------------------------------------------------------- */
 
 const lastRequestMap = new Map<string, number>();
 const REQUEST_COOLDOWN = 2000; // 2 seconds
+
+const generationWindow = new Map<string, number[]>();
+const MAX_GENERATIONS = 7;
+const WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
 /* -------------------------------------------------------------------------- */
 
@@ -52,6 +56,7 @@ async function streamToBuffer(stream: ReadableStream): Promise<Buffer> {
 
 export async function POST(req: Request) {
   try {
+
     const supabaseServer = await getSupabaseServer();
 
     const {
@@ -68,7 +73,7 @@ export async function POST(req: Request) {
     const user_id = user.id;
 
     /* -------------------------------------------------------------------------- */
-    /*                           RATE LIMIT CHECK                                 */
+    /* 2 SECOND COOLDOWN                                                          */
     /* -------------------------------------------------------------------------- */
 
     const now = Date.now();
@@ -82,6 +87,26 @@ export async function POST(req: Request) {
     }
 
     lastRequestMap.set(user_id, now);
+
+    /* -------------------------------------------------------------------------- */
+    /* 7 GENERATIONS PER 5 MINUTES LIMIT                                          */
+    /* -------------------------------------------------------------------------- */
+
+    const userHistory = generationWindow.get(user_id) || [];
+
+    const recent = userHistory.filter(
+      (timestamp) => now - timestamp < WINDOW_MS
+    );
+
+    if (recent.length >= MAX_GENERATIONS) {
+      return NextResponse.json(
+        { error: "Generation limit reached. Please wait a few minutes." },
+        { status: 429 }
+      );
+    }
+
+    recent.push(now);
+    generationWindow.set(user_id, recent);
 
     /* -------------------------------------------------------------------------- */
 
@@ -177,7 +202,6 @@ export async function POST(req: Request) {
     if (!buffer) buffer = extract(output);
 
     if (!buffer) {
-      console.error("Replicate returned no image");
       return NextResponse.json(
         { error: "generation_failed" },
         { status: 500 }
@@ -194,7 +218,6 @@ export async function POST(req: Request) {
         });
 
     if (uploadError) {
-      console.error("Storage upload error:", uploadError);
       return NextResponse.json(
         { error: "storage_upload_failed" },
         { status: 500 }
@@ -220,22 +243,13 @@ export async function POST(req: Request) {
     });
 
   } catch (err: any) {
-    console.error("Nano generation error:", err);
 
-    if (
-      err?.message?.includes("E003") ||
-      err?.message?.includes("unavailable") ||
-      err?.message?.includes("high demand")
-    ) {
-      return NextResponse.json(
-        { error: "servers_busy" },
-        { status: 503 }
-      );
-    }
+    console.error("Nano generation error:", err);
 
     return NextResponse.json(
       { error: "generation_failed" },
       { status: 500 }
     );
+
   }
 }
