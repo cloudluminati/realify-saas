@@ -23,8 +23,11 @@ const lastRequestMap = new Map<string, number>();
 const REQUEST_COOLDOWN = 2000; // 2 seconds
 
 const generationWindow = new Map<string, number[]>();
-const MAX_GENERATIONS = 7;
+const MAX_GENERATIONS = 15;
 const WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+
+// Prevent parallel generations from multiple tabs
+const activeGenerations = new Set<string>();
 
 /* -------------------------------------------------------------------------- */
 
@@ -73,174 +76,196 @@ export async function POST(req: Request) {
     const user_id = user.id;
 
     /* -------------------------------------------------------------------------- */
-    /* 2 SECOND COOLDOWN                                                          */
+    /* PREVENT MULTIPLE TABS / PARALLEL GENERATIONS                               */
     /* -------------------------------------------------------------------------- */
 
-    const now = Date.now();
-    const lastRequest = lastRequestMap.get(user_id);
-
-    if (lastRequest && now - lastRequest < REQUEST_COOLDOWN) {
+    if (activeGenerations.has(user_id)) {
       return NextResponse.json(
-        { error: "Too many requests" },
+        { error: "Generation already in progress" },
         { status: 429 }
       );
     }
 
-    lastRequestMap.set(user_id, now);
+    activeGenerations.add(user_id);
 
-    /* -------------------------------------------------------------------------- */
-    /* 7 GENERATIONS PER 5 MINUTES LIMIT                                          */
-    /* -------------------------------------------------------------------------- */
+    try {
 
-    const userHistory = generationWindow.get(user_id) || [];
+      /* -------------------------------------------------------------------------- */
+      /* 2 SECOND COOLDOWN                                                          */
+      /* -------------------------------------------------------------------------- */
 
-    const recent = userHistory.filter(
-      (timestamp) => now - timestamp < WINDOW_MS
-    );
+      const now = Date.now();
+      const lastRequest = lastRequestMap.get(user_id);
 
-    if (recent.length >= MAX_GENERATIONS) {
-      return NextResponse.json(
-        { error: "Generation limit reached. Please wait a few minutes." },
-        { status: 429 }
-      );
-    }
-
-    recent.push(now);
-    generationWindow.set(user_id, recent);
-
-    /* -------------------------------------------------------------------------- */
-
-    const { data: sub } = await supabaseServer
-      .from("subscriptions")
-      .select("status")
-      .eq("user_id", user_id)
-      .in("status", ["active", "canceling"])
-      .limit(1)
-      .maybeSingle();
-
-    if (!sub) {
-      return NextResponse.json(
-        { error: "no_subscription" },
-        { status: 403 }
-      );
-    }
-
-    if (!(await canConsume(UNIT_COSTS.nano))) {
-      return NextResponse.json(
-        { error: "limit_reached" },
-        { status: 403 }
-      );
-    }
-
-    const formData = await req.formData();
-    const prompt = formData.get("prompt");
-    const aspectRatioRaw = formData.get("aspectRatio");
-
-    if (!prompt || typeof prompt !== "string") {
-      return NextResponse.json(
-        { error: "Missing prompt" },
-        { status: 400 }
-      );
-    }
-
-    const aspect_ratio =
-      typeof aspectRatioRaw === "string" &&
-      ALLOWED_RATIOS.has(aspectRatioRaw.trim())
-        ? aspectRatioRaw.trim()
-        : "match_input_image";
-
-    const input: Record<string, any> = {
-      prompt,
-      output_format: "png",
-      aspect_ratio,
-    };
-
-    const imageFiles = formData
-      .getAll("images")
-      .filter((f): f is File => f instanceof File)
-      .slice(0, 14);
-
-    if (imageFiles.length > 0) {
-      input.image_input = imageFiles;
-    }
-
-    const output = await replicate.run(
-      "google/nano-banana-pro",
-      { input }
-    );
-
-    let buffer: Buffer | null = null;
-
-    if (output instanceof ReadableStream) {
-      buffer = await streamToBuffer(output);
-    }
-
-    const extract = (v: any): Buffer | null => {
-      if (!v) return null;
-
-      if (typeof v === "string" && v.length > 100) {
-        return Buffer.from(v, "base64");
+      if (lastRequest && now - lastRequest < REQUEST_COOLDOWN) {
+        return NextResponse.json(
+          { error: "Too many requests" },
+          { status: 429 }
+        );
       }
 
-      if (Array.isArray(v)) {
-        for (const i of v) {
-          const found = extract(i);
-          if (found) return found;
+      lastRequestMap.set(user_id, now);
+
+      /* -------------------------------------------------------------------------- */
+      /* 15 GENERATIONS PER 5 MINUTES LIMIT                                         */
+      /* -------------------------------------------------------------------------- */
+
+      const userHistory = generationWindow.get(user_id) || [];
+
+      const recent = userHistory.filter(
+        (timestamp) => now - timestamp < WINDOW_MS
+      );
+
+      if (recent.length >= MAX_GENERATIONS) {
+        return NextResponse.json(
+          { error: "Generation limit reached. Please wait a few minutes." },
+          { status: 429 }
+        );
+      }
+
+      recent.push(now);
+      generationWindow.set(user_id, recent);
+
+      /* -------------------------------------------------------------------------- */
+
+      const { data: sub } = await supabaseServer
+        .from("subscriptions")
+        .select("status")
+        .eq("user_id", user_id)
+        .in("status", ["active", "canceling"])
+        .limit(1)
+        .maybeSingle();
+
+      if (!sub) {
+        return NextResponse.json(
+          { error: "no_subscription" },
+          { status: 403 }
+        );
+      }
+
+      if (!(await canConsume(UNIT_COSTS.nano))) {
+        return NextResponse.json(
+          { error: "limit_reached" },
+          { status: 403 }
+        );
+      }
+
+      const formData = await req.formData();
+      const prompt = formData.get("prompt");
+      const aspectRatioRaw = formData.get("aspectRatio");
+
+      if (!prompt || typeof prompt !== "string") {
+        return NextResponse.json(
+          { error: "Missing prompt" },
+          { status: 400 }
+        );
+      }
+
+      const aspect_ratio =
+        typeof aspectRatioRaw === "string" &&
+        ALLOWED_RATIOS.has(aspectRatioRaw.trim())
+          ? aspectRatioRaw.trim()
+          : "match_input_image";
+
+      const input: Record<string, any> = {
+        prompt,
+        output_format: "png",
+        aspect_ratio,
+      };
+
+      const imageFiles = formData
+        .getAll("images")
+        .filter((f): f is File => f instanceof File)
+        .slice(0, 14);
+
+      if (imageFiles.length > 0) {
+        input.image_input = imageFiles;
+      }
+
+      const output = await replicate.run(
+        "google/nano-banana-pro",
+        { input }
+      );
+
+      let buffer: Buffer | null = null;
+
+      if (output instanceof ReadableStream) {
+        buffer = await streamToBuffer(output);
+      }
+
+      const extract = (v: any): Buffer | null => {
+        if (!v) return null;
+
+        if (typeof v === "string" && v.length > 100) {
+          return Buffer.from(v, "base64");
         }
-      }
 
-      if (typeof v === "object") {
-        for (const k of Object.keys(v)) {
-          const found = extract(v[k]);
-          if (found) return found;
+        if (Array.isArray(v)) {
+          for (const i of v) {
+            const found = extract(i);
+            if (found) return found;
+          }
         }
+
+        if (typeof v === "object") {
+          for (const k of Object.keys(v)) {
+            const found = extract(v[k]);
+            if (found) return found;
+          }
+        }
+
+        return null;
+      };
+
+      if (!buffer) buffer = extract(output);
+
+      if (!buffer) {
+        return NextResponse.json(
+          { error: "generation_failed" },
+          { status: 500 }
+        );
       }
 
-      return null;
-    };
+      const fileName = `nano-${Date.now()}.png`;
 
-    if (!buffer) buffer = extract(output);
+      const { error: uploadError } =
+        await supabaseServer.storage
+          .from("generations")
+          .upload(fileName, buffer, {
+            contentType: "image/png",
+          });
 
-    if (!buffer) {
-      return NextResponse.json(
-        { error: "generation_failed" },
-        { status: 500 }
-      );
-    }
+      if (uploadError) {
+        return NextResponse.json(
+          { error: "storage_upload_failed" },
+          { status: 500 }
+        );
+      }
 
-    const fileName = `nano-${Date.now()}.png`;
-
-    const { error: uploadError } =
-      await supabaseServer.storage
+      const { data } = supabaseServer.storage
         .from("generations")
-        .upload(fileName, buffer, {
-          contentType: "image/png",
-        });
+        .getPublicUrl(fileName);
 
-    if (uploadError) {
-      return NextResponse.json(
-        { error: "storage_upload_failed" },
-        { status: 500 }
-      );
+      await supabaseServer.from("image_generation_history").insert({
+        user_id,
+        prompt,
+        model: "nano",
+        aspect_ratio,
+        image_url: data.publicUrl,
+      });
+
+      await consume(UNIT_COSTS.nano);
+
+      return NextResponse.json({
+        image: data.publicUrl,
+      });
+
+    } finally {
+
+      // Always release the generation lock
+      activeGenerations.delete(user_id);
+
     }
-
-    const { data } = supabaseServer.storage
-      .from("generations")
-      .getPublicUrl(fileName);
-
-    await supabaseServer.from("image_generation_history").insert({
-      user_id,
-      prompt,
-      model: "nano",
-      aspect_ratio,
-      image_url: data.publicUrl,
-    });
-
-    await consume(UNIT_COSTS.nano);
-
-    return NextResponse.json({
-      image: data.publicUrl,
-    });
 
   } catch (err: any) {
 
