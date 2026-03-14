@@ -107,6 +107,25 @@ export async function POST(req: Request) {
     );
   }
 
+  /* -------------------------------------------------------------------------- */
+  /* EVENT DEDUPLICATION (PREVENT DOUBLE CREDITS)                               */
+  /* -------------------------------------------------------------------------- */
+
+  const { data: existingEvent } = await supabase
+    .from("stripe_events")
+    .select("id")
+    .eq("id", event.id)
+    .maybeSingle();
+
+  if (existingEvent) {
+    console.log("Duplicate Stripe event ignored:", event.id);
+    return NextResponse.json({ received: true });
+  }
+
+  await supabase.from("stripe_events").insert({
+    id: event.id,
+  });
+
   console.log("Stripe webhook:", event.type);
 
   /* ---------------- ONE-TIME CREDIT BUNDLES ---------------- */
