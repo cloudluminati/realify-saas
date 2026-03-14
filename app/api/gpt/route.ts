@@ -26,6 +26,9 @@ const generationWindow = new Map<string, number[]>();
 const MAX_GENERATIONS = 7;
 const WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
+// Prevent parallel generations from multiple tabs
+const activeGenerations = new Set<string>();
+
 /* -------------------------------------------------------------------------- */
 
 const GPT_ALLOWED_RATIOS = new Set([
@@ -98,6 +101,7 @@ const extractBuffer = (v: any): Buffer | null => {
 
 export async function POST(req: Request) {
   try {
+
     const supabaseServer = await getSupabaseServer();
 
     const {
@@ -114,161 +118,184 @@ export async function POST(req: Request) {
     const user_id = user.id;
 
     /* ---------------------------------------------------------------------- */
-    /* 2 SECOND COOLDOWN                                                      */
+    /* PREVENT MULTIPLE TABS / PARALLEL GENERATIONS                           */
     /* ---------------------------------------------------------------------- */
 
-    const now = Date.now();
-    const lastRequest = lastRequestMap.get(user_id);
-
-    if (lastRequest && now - lastRequest < REQUEST_COOLDOWN) {
+    if (activeGenerations.has(user_id)) {
       return NextResponse.json(
-        { error: "Too many requests" },
+        { error: "Generation already in progress" },
         { status: 429 }
       );
     }
 
-    lastRequestMap.set(user_id, now);
+    activeGenerations.add(user_id);
 
-    /* ---------------------------------------------------------------------- */
-    /* 7 GENERATIONS PER 5 MINUTES LIMIT                                      */
-    /* ---------------------------------------------------------------------- */
+    try {
 
-    const userHistory = generationWindow.get(user_id) || [];
+      /* ---------------------------------------------------------------------- */
+      /* 2 SECOND COOLDOWN                                                      */
+      /* ---------------------------------------------------------------------- */
 
-    const recent = userHistory.filter(
-      (timestamp) => now - timestamp < WINDOW_MS
-    );
+      const now = Date.now();
+      const lastRequest = lastRequestMap.get(user_id);
 
-    if (recent.length >= MAX_GENERATIONS) {
-      return NextResponse.json(
-        { error: "Generation limit reached. Please wait a few minutes." },
-        { status: 429 }
+      if (lastRequest && now - lastRequest < REQUEST_COOLDOWN) {
+        return NextResponse.json(
+          { error: "Too many requests" },
+          { status: 429 }
+        );
+      }
+
+      lastRequestMap.set(user_id, now);
+
+      /* ---------------------------------------------------------------------- */
+      /* 7 GENERATIONS PER 5 MINUTES LIMIT                                      */
+      /* ---------------------------------------------------------------------- */
+
+      const userHistory = generationWindow.get(user_id) || [];
+
+      const recent = userHistory.filter(
+        (timestamp) => now - timestamp < WINDOW_MS
       );
-    }
 
-    recent.push(now);
-    generationWindow.set(user_id, recent);
+      if (recent.length >= MAX_GENERATIONS) {
+        return NextResponse.json(
+          { error: "Generation limit reached. Please wait a few minutes." },
+          { status: 429 }
+        );
+      }
 
-    /* ---------------------------------------------------------------------- */
+      recent.push(now);
+      generationWindow.set(user_id, recent);
 
-    const { data: sub } = await supabaseServer
-      .from("subscriptions")
-      .select("status")
-      .eq("user_id", user_id)
-      .in("status", ["active", "canceling"])
-      .limit(1)
-      .maybeSingle();
+      /* ---------------------------------------------------------------------- */
 
-    if (!sub) {
-      return NextResponse.json(
-        { error: "no_subscription" },
-        { status: 403 }
-      );
-    }
+      const { data: sub } = await supabaseServer
+        .from("subscriptions")
+        .select("status")
+        .eq("user_id", user_id)
+        .in("status", ["active", "canceling"])
+        .limit(1)
+        .maybeSingle();
 
-    const formData = await req.formData();
-    const prompt = formData.get("prompt");
-    const aspectRatioRaw = formData.get("aspectRatio");
-    const qualityRaw = formData.get("quality");
+      if (!sub) {
+        return NextResponse.json(
+          { error: "no_subscription" },
+          { status: 403 }
+        );
+      }
 
-    if (!prompt || typeof prompt !== "string") {
-      return NextResponse.json(
-        { error: "Missing prompt" },
-        { status: 400 }
-      );
-    }
+      const formData = await req.formData();
+      const prompt = formData.get("prompt");
+      const aspectRatioRaw = formData.get("aspectRatio");
+      const qualityRaw = formData.get("quality");
 
-    const quality =
-      qualityRaw === "low" ||
-      qualityRaw === "medium" ||
-      qualityRaw === "high" ||
-      qualityRaw === "auto"
-        ? qualityRaw
-        : "auto";
+      if (!prompt || typeof prompt !== "string") {
+        return NextResponse.json(
+          { error: "Missing prompt" },
+          { status: 400 }
+        );
+      }
 
-    const cost = UNIT_COSTS.gpt[quality];
+      const quality =
+        qualityRaw === "low" ||
+        qualityRaw === "medium" ||
+        qualityRaw === "high" ||
+        qualityRaw === "auto"
+          ? qualityRaw
+          : "auto";
 
-    if (!(await canConsume(cost))) {
-      return NextResponse.json(
-        { error: "limit_reached" },
-        { status: 403 }
-      );
-    }
+      const cost = UNIT_COSTS.gpt[quality];
 
-    const images = formData
-      .getAll("images")
-      .filter((f): f is File => f instanceof File);
+      if (!(await canConsume(cost))) {
+        return NextResponse.json(
+          { error: "limit_reached" },
+          { status: 403 }
+        );
+      }
 
-    const aspect_ratio =
-      GPT_ALLOWED_RATIOS.has(String(aspectRatioRaw))
-        ? String(aspectRatioRaw)
-        : "1:1";
+      const images = formData
+        .getAll("images")
+        .filter((f): f is File => f instanceof File);
 
-    const input: Record<string, any> = {
-      prompt,
-      aspect_ratio,
-      output_format: "png",
-      quality,
-    };
+      const aspect_ratio =
+        GPT_ALLOWED_RATIOS.has(String(aspectRatioRaw))
+          ? String(aspectRatioRaw)
+          : "1:1";
 
-    if (images.length > 0) {
-      input.input_images = images;
-    }
+      const input: Record<string, any> = {
+        prompt,
+        aspect_ratio,
+        output_format: "png",
+        quality,
+      };
 
-    const output = await replicate.run("openai/gpt-image-1.5", {
-      input,
-    });
+      if (images.length > 0) {
+        input.input_images = images;
+      }
 
-    const stream = findStream(output);
-    let buffer: Buffer | null = null;
+      const output = await replicate.run("openai/gpt-image-1.5", {
+        input,
+      });
 
-    if (stream) buffer = await streamToBuffer(stream);
-    if (!buffer) buffer = extractBuffer(output);
+      const stream = findStream(output);
+      let buffer: Buffer | null = null;
 
-    if (!buffer) {
-      console.error("GPT OUTPUT:", output);
-      return NextResponse.json(
-        { error: "generation_failed" },
-        { status: 500 }
-      );
-    }
+      if (stream) buffer = await streamToBuffer(stream);
+      if (!buffer) buffer = extractBuffer(output);
 
-    const fileName = `gpt-${Date.now()}.png`;
+      if (!buffer) {
+        console.error("GPT OUTPUT:", output);
+        return NextResponse.json(
+          { error: "generation_failed" },
+          { status: 500 }
+        );
+      }
 
-    const { error: uploadError } =
-      await supabaseServer.storage
+      const fileName = `gpt-${Date.now()}.png`;
+
+      const { error: uploadError } =
+        await supabaseServer.storage
+          .from("generations")
+          .upload(fileName, buffer, {
+            contentType: "image/png",
+          });
+
+      if (uploadError) {
+        console.error("Storage upload error:", uploadError);
+        return NextResponse.json(
+          { error: "storage_upload_failed" },
+          { status: 500 }
+        );
+      }
+
+      const { data } = supabaseServer.storage
         .from("generations")
-        .upload(fileName, buffer, {
-          contentType: "image/png",
-        });
+        .getPublicUrl(fileName);
 
-    if (uploadError) {
-      console.error("Storage upload error:", uploadError);
-      return NextResponse.json(
-        { error: "storage_upload_failed" },
-        { status: 500 }
-      );
+      await supabaseServer.from("image_generation_history").insert({
+        user_id,
+        prompt,
+        model: "gpt",
+        aspect_ratio,
+        image_url: data.publicUrl,
+      });
+
+      await consume(cost);
+
+      return NextResponse.json({
+        image: data.publicUrl,
+      });
+
+    } finally {
+
+      // Always release the generation lock
+      activeGenerations.delete(user_id);
+
     }
-
-    const { data } = supabaseServer.storage
-      .from("generations")
-      .getPublicUrl(fileName);
-
-    await supabaseServer.from("image_generation_history").insert({
-      user_id,
-      prompt,
-      model: "gpt",
-      aspect_ratio,
-      image_url: data.publicUrl,
-    });
-
-    await consume(cost);
-
-    return NextResponse.json({
-      image: data.publicUrl,
-    });
 
   } catch (err: any) {
+
     console.error("GPT ERROR:", err);
 
     if (
@@ -286,5 +313,6 @@ export async function POST(req: Request) {
       { error: "generation_failed" },
       { status: 500 }
     );
+
   }
 }
