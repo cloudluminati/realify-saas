@@ -39,6 +39,7 @@ export default function Page() {
   const [result, setResult] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   async function checkAuth() {
 
@@ -118,11 +119,38 @@ export default function Page() {
 
   }
 
+  function translateError(error: string) {
+
+    if (error === "limit_reached") {
+      return "You don't have enough credits.";
+    }
+
+    if (error === "servers_busy") {
+      return "Servers are busy. Try again in a moment.";
+    }
+
+    if (error === "Too many requests") {
+      return "Please wait a few seconds before generating again.";
+    }
+
+    if (error === "Generation already in progress") {
+      return "An image is already generating. Please wait.";
+    }
+
+    if (error === "no_subscription") {
+      return "You need an active subscription.";
+    }
+
+    return "Generation failed. Please try again.";
+  }
+
   async function generate() {
 
     if (!prompt.trim() || loading) return;
 
     setLoading(true);
+    setErrorMessage(null);
+    setResult(null);
 
     try {
 
@@ -148,15 +176,18 @@ export default function Page() {
       const data = await res.json();
 
       if (!res.ok) {
-        alert('Generation failed.');
+
+        const message = translateError(data?.error);
+        setErrorMessage(message);
         return;
+
       }
 
       setResult(data.image);
 
     } catch {
 
-      alert('Network error.');
+      setErrorMessage("Network error. Please try again.");
 
     } finally {
 
@@ -216,8 +247,6 @@ export default function Page() {
 
       <h1>Realify Generator</h1>
 
-      {/* NAV */}
-
       <div style={{ marginBottom: 20 }}>
 
         <button
@@ -249,8 +278,6 @@ export default function Page() {
 
       </div>
 
-      {/* MODEL */}
-
       <div style={{ marginTop: 20 }}>
 
         <label>Model</label>
@@ -266,8 +293,6 @@ export default function Page() {
         </select>
 
       </div>
-
-      {/* QUALITY */}
 
       <div style={{ marginTop: 20 }}>
 
@@ -286,8 +311,6 @@ export default function Page() {
         </select>
 
       </div>
-
-      {/* ASPECT RATIO */}
 
       <div style={{ marginTop: 20 }}>
 
@@ -308,8 +331,6 @@ export default function Page() {
 
       </div>
 
-      {/* IMAGE UPLOAD */}
-
       <div style={{ marginTop: 20 }}>
 
         <label>Reference Images</label>
@@ -322,8 +343,6 @@ export default function Page() {
 
       </div>
 
-      {/* PROMPT */}
-
       <textarea
         rows={4}
         style={{ width: '100%', marginTop: 20 }}
@@ -331,8 +350,6 @@ export default function Page() {
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
       />
-
-      {/* GENERATE */}
 
       <button
         onClick={generate}
@@ -348,6 +365,14 @@ export default function Page() {
         {loading ? 'Generating...' : 'Generate Image'}
 
       </button>
+
+      {errorMessage && (
+
+        <div style={{ marginTop: 20, color: "red" }}>
+          {errorMessage}
+        </div>
+
+      )}
 
       {result && (
 
