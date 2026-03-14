@@ -207,7 +207,7 @@ export async function POST(req: Request) {
 
       const cost = UNIT_COSTS.gpt[quality];
 
-      if (!(await canConsume(cost))) {
+      if (!(await canConsume(user_id, cost))) {
         return NextResponse.json(
           { error: "limit_reached" },
           { status: 403 }
@@ -281,7 +281,7 @@ export async function POST(req: Request) {
         image_url: data.publicUrl,
       });
 
-      await consume(cost);
+      await consume(user_id, cost);
 
       return NextResponse.json({
         image: data.publicUrl,

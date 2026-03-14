@@ -143,7 +143,7 @@ export async function POST(req: Request) {
         );
       }
 
-      if (!(await canConsume(UNIT_COSTS.nano))) {
+      if (!(await canConsume(user_id, UNIT_COSTS.nano))) {
         return NextResponse.json(
           { error: "limit_reached" },
           { status: 403 }
@@ -254,7 +254,7 @@ export async function POST(req: Request) {
         image_url: data.publicUrl,
       });
 
-      await consume(UNIT_COSTS.nano);
+      await consume(user_id, UNIT_COSTS.nano);
 
       return NextResponse.json({
         image: data.publicUrl,

@@ -9,11 +9,8 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-export type Plan = 'starter' | 'creator' | 'pro';
-
 /**
  * 🔑 SUPABASE CLIENT (SERVER ONLY)
- * Uses service role (never exposed)
  */
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -34,17 +31,16 @@ export const UNIT_COSTS = {
 };
 
 /**
- * 📦 GET ACTIVE SUBSCRIPTION
- * (Temporary: first active row)
+ * 📦 GET USER SUBSCRIPTION
  */
-async function getActiveSubscription() {
+async function getUserSubscription(userId: string) {
   const { data, error } = await supabase
     .from('subscriptions')
     .select('*')
+    .eq('user_id', userId)
     .eq('status', 'active')
-    .order('created_at', { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (error || !data) {
     console.error('❌ No active subscription found:', error);
@@ -57,8 +53,12 @@ async function getActiveSubscription() {
 /**
  * ✅ CHECK IF USER CAN CONSUME UNITS
  */
-export async function canConsume(units: number): Promise<boolean> {
-  const sub = await getActiveSubscription();
+export async function canConsume(
+  userId: string,
+  units: number
+): Promise<boolean> {
+
+  const sub = await getUserSubscription(userId);
   if (!sub) return false;
 
   return sub.units_remaining >= units;
@@ -67,8 +67,12 @@ export async function canConsume(units: number): Promise<boolean> {
 /**
  * 💸 CONSUME UNITS (CALL ONLY AFTER SUCCESS)
  */
-export async function consume(units: number) {
-  const sub = await getActiveSubscription();
+export async function consume(
+  userId: string,
+  units: number
+) {
+
+  const sub = await getUserSubscription(userId);
   if (!sub) return;
 
   const newRemaining = Math.max(sub.units_remaining - units, 0);
@@ -84,15 +88,11 @@ export async function consume(units: number) {
   if (error) {
     console.error('❌ Failed to deduct units:', error);
   } else {
-    console.log('🔻 Units deducted:', units, '→ remaining:', newRemaining);
+    console.log(
+      '🔻 Units deducted:',
+      units,
+      '→ remaining:',
+      newRemaining
+    );
   }
 }
-
-/**
- * 📊 GET REMAINING UNITS
- */
-export async function getRemaining(): Promise<number> {
-  const sub = await getActiveSubscription();
-  return sub ? sub.units_remaining : 0;
-}
-
