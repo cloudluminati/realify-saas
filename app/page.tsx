@@ -41,6 +41,8 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
   async function checkAuth() {
 
     const {
@@ -208,15 +210,6 @@ export default function Page() {
 
   }
 
-  function remixPrompt() {
-
-    if (!prompt) return;
-
-    setErrorMessage(null);
-    setResult(null);
-
-  }
-
   function shareImage() {
 
     if (!result) return;
@@ -274,7 +267,9 @@ export default function Page() {
 
     <main style={{ maxWidth: 900, margin: 'auto', padding: 32 }}>
 
-      <h1>Realify Generator</h1>
+      <h1>Realify</h1>
+
+      {/* NAV */}
 
       <div style={{ marginBottom: 20 }}>
 
@@ -304,74 +299,16 @@ export default function Page() {
 
       </div>
 
-      <div style={{ marginTop: 20 }}>
-
-        <label>Model</label>
-
-        <select
-          value={model}
-          onChange={(e) => setModel(e.target.value as ModelChoice)}
-        >
-
-          <option value="nano">Nano Banana</option>
-          <option value="gpt">GPT Image</option>
-
-        </select>
-
-      </div>
-
-      <div style={{ marginTop: 20 }}>
-
-        <label>Quality</label>
-
-        <select
-          value={quality}
-          onChange={(e) => setQuality(e.target.value as QualityChoice)}
-        >
-
-          <option value="auto">Auto</option>
-          <option value="low">Low</option>
-          <option value="medium">Medium</option>
-          <option value="high">High</option>
-
-        </select>
-
-      </div>
-
-      <div style={{ marginTop: 20 }}>
-
-        <label>Aspect Ratio</label>
-
-        <select
-          value={aspectRatio}
-          onChange={(e) => setAspectRatio(e.target.value)}
-        >
-
-          {ratios.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-
-        </select>
-
-      </div>
-
-      <div style={{ marginTop: 20 }}>
-
-        <label>Reference Images</label>
-
-        <input
-          type="file"
-          multiple
-          onChange={(e) => handleImageUpload(e.target.files)}
-        />
-
-      </div>
+      {/* PROMPT */}
 
       <textarea
         rows={4}
-        style={{ width: '100%', marginTop: 20 }}
+        style={{
+          width: '100%',
+          marginTop: 20,
+          fontSize: 16,
+          padding: 10
+        }}
         placeholder="Describe your image..."
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
@@ -380,17 +317,97 @@ export default function Page() {
       <button
         onClick={generate}
         style={{
-          marginTop: 20,
-          padding: "12px 20px",
+          marginTop: 15,
+          padding: "14px 24px",
           background: "#111",
           color: "#fff",
-          borderRadius: 6
+          borderRadius: 6,
+          fontSize: 16
         }}
       >
 
         {loading ? 'Generating...' : 'Generate Image'}
 
       </button>
+
+      {/* ADVANCED SETTINGS */}
+
+      <div style={{ marginTop: 20 }}>
+
+        <button onClick={() => setShowAdvanced(!showAdvanced)}>
+          Advanced Settings
+        </button>
+
+        {showAdvanced && (
+
+          <div style={{ marginTop: 15 }}>
+
+            <div>
+
+              <label>Model</label>
+
+              <select
+                value={model}
+                onChange={(e) => setModel(e.target.value as ModelChoice)}
+              >
+                <option value="nano">Nano Banana</option>
+                <option value="gpt">GPT Image</option>
+              </select>
+
+            </div>
+
+            <div style={{ marginTop: 10 }}>
+
+              <label>Quality</label>
+
+              <select
+                value={quality}
+                onChange={(e) => setQuality(e.target.value as QualityChoice)}
+              >
+                <option value="auto">Auto</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+
+            </div>
+
+            <div style={{ marginTop: 10 }}>
+
+              <label>Aspect Ratio</label>
+
+              <select
+                value={aspectRatio}
+                onChange={(e) => setAspectRatio(e.target.value)}
+              >
+                {ratios.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+
+            </div>
+
+            <div style={{ marginTop: 10 }}>
+
+              <label>Reference Images</label>
+
+              <input
+                type="file"
+                multiple
+                onChange={(e) => handleImageUpload(e.target.files)}
+              />
+
+            </div>
+
+          </div>
+
+        )}
+
+      </div>
+
+      {/* ERROR */}
 
       {errorMessage && (
 
@@ -399,6 +416,8 @@ export default function Page() {
         </div>
 
       )}
+
+      {/* RESULT */}
 
       {result && (
 
@@ -418,10 +437,6 @@ export default function Page() {
 
             <button onClick={downloadImage} style={{ marginRight: 10 }}>
               Download
-            </button>
-
-            <button onClick={remixPrompt} style={{ marginRight: 10 }}>
-              Remix Prompt
             </button>
 
             <button onClick={generate} style={{ marginRight: 10 }}>
