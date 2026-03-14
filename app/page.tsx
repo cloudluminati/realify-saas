@@ -197,6 +197,35 @@ export default function Page() {
 
   }
 
+  function downloadImage() {
+
+    if (!result) return;
+
+    const link = document.createElement('a');
+    link.href = result;
+    link.download = 'realify-image.png';
+    link.click();
+
+  }
+
+  function remixPrompt() {
+
+    if (!prompt) return;
+
+    setErrorMessage(null);
+    setResult(null);
+
+  }
+
+  function shareImage() {
+
+    if (!result) return;
+
+    navigator.clipboard.writeText(result);
+    alert("Image link copied!");
+
+  }
+
   const ratios = model === 'nano' ? NANO_RATIOS : GPT_RATIOS;
 
   if (!user) {
@@ -249,10 +278,7 @@ export default function Page() {
 
       <div style={{ marginBottom: 20 }}>
 
-        <button
-          onClick={logout}
-          style={{ marginRight: 10 }}
-        >
+        <button onClick={logout} style={{ marginRight: 10 }}>
           Logout
         </button>
 
@@ -387,6 +413,26 @@ export default function Page() {
               borderRadius: 10
             }}
           />
+
+          <div style={{ marginTop: 20 }}>
+
+            <button onClick={downloadImage} style={{ marginRight: 10 }}>
+              Download
+            </button>
+
+            <button onClick={remixPrompt} style={{ marginRight: 10 }}>
+              Remix Prompt
+            </button>
+
+            <button onClick={generate} style={{ marginRight: 10 }}>
+              Generate Again
+            </button>
+
+            <button onClick={shareImage}>
+              Share
+            </button>
+
+          </div>
 
         </div>
 
