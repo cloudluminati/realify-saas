@@ -6,57 +6,52 @@
 
 :root {
   --bg: #000000;
-  --panel: rgba(15, 15, 15, 0.7);
+  --panel: rgba(15, 15, 15, 0.75);
   --border: rgba(0, 255, 156, 0.15);
   --text: #e5e7eb;
   --accent: #00ff9c;
-}
-
-html,
-body {
-  max-width: 100vw;
-  overflow-x: hidden;
 }
 
 body {
   background: black;
   color: var(--text);
   font-family: Inter, system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased;
 }
 
-/* ---------------- GLOBAL LAYOUT ---------------- */
+/* ---------------- MAIN LAYOUT ---------------- */
 
 main {
   max-width: 900px;
   margin: 0 auto;
-  padding: 40px 20px;
+  padding: 60px 24px;
+}
+
+/* ---------------- NAV ---------------- */
+
+main > div:first-of-type {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 30px;
 }
 
 /* ---------------- HEADINGS ---------------- */
 
 h1 {
-  font-size: 42px;
+  font-size: 44px;
   font-weight: 700;
   margin-bottom: 10px;
-  letter-spacing: -0.5px;
 }
 
-h2 {
-  font-size: 24px;
-  margin-top: 20px;
-}
-
-/* ---------------- NAV BUTTONS ---------------- */
+/* ---------------- BUTTONS ---------------- */
 
 button {
-  border-radius: 8px;
-  padding: 8px 14px;
+  border-radius: 10px;
+  padding: 10px 16px;
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s ease;
   border: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.65);
   color: var(--text);
 }
 
@@ -65,33 +60,25 @@ button:hover {
   color: var(--accent);
 }
 
-/* primary button (generate) */
-button:has(+ *) {
+/* generate button (bigger emphasis) */
+button:nth-of-type(2) {
+  margin-top: 15px;
+  padding: 14px 24px;
   background: #0a0a0a;
-  border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
-button:has(+ *):hover {
-  background: #111;
-}
-
-/* ---------------- TEXTAREA (PROMPT BOX) ---------------- */
+/* ---------------- PROMPT BOX ---------------- */
 
 textarea {
   width: 100%;
   margin-top: 20px;
   font-size: 16px;
-  padding: 18px;
-  border-radius: 14px;
+  padding: 20px;
+  border-radius: 16px;
   border: 1px solid var(--border);
   background: var(--panel);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
   color: var(--text);
-  outline: none;
-}
-
-textarea::placeholder {
-  color: #9ca3af;
 }
 
 textarea:focus {
@@ -99,28 +86,17 @@ textarea:focus {
   box-shadow: 0 0 0 1px rgba(0, 255, 156, 0.2);
 }
 
-/* ---------------- SELECT / INPUT ---------------- */
+/* ---------------- ADVANCED SECTION ---------------- */
 
-select,
-input {
-  padding: 8px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.5);
-  color: var(--text);
+main > div:nth-of-type(2) {
+  margin-top: 25px;
 }
 
-/* ---------------- RESULT IMAGE ---------------- */
+/* ---------------- RESULT ---------------- */
 
 img {
-  border-radius: 14px;
-  margin-top: 10px;
-}
-
-/* ---------------- ERROR ---------------- */
-
-.red {
-  color: #ff4d4d;
+  border-radius: 16px;
+  margin-top: 15px;
 }
 
 /* ---------------- SCROLL ---------------- */
@@ -132,11 +108,4 @@ img {
 ::-webkit-scrollbar-thumb {
   background: rgba(0, 255, 156, 0.2);
   border-radius: 10px;
-}
-
-/* ---------------- MATRIX OVERLAY BLEND ---------------- */
-
-/* ensures content pops above matrix */
-body > div {
-  backdrop-filter: blur(2px);
 }
