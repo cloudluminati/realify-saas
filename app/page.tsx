@@ -11,16 +11,7 @@ type QualityChoice = 'auto' | 'low' | 'medium' | 'high';
 
 const NANO_RATIOS = [
   'match_input_image',
-  '1:1',
-  '2:3',
-  '3:2',
-  '3:4',
-  '4:3',
-  '4:5',
-  '5:4',
-  '9:16',
-  '16:9',
-  '21:9',
+  '1:1','2:3','3:2','3:4','4:3','4:5','5:4','9:16','16:9','21:9',
 ];
 
 const GPT_RATIOS = ['1:1', '3:2', '2:3'];
@@ -37,6 +28,7 @@ export default function Page() {
 
   const [images, setImages] = useState<File[]>([]);
   const [result, setResult] = useState<string | null>(null);
+  const [recentImages, setRecentImages] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -44,17 +36,13 @@ export default function Page() {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   async function checkAuth() {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
+    const { data: { session } } = await supabase.auth.getSession();
     setUser(session?.user ?? null);
   }
 
   async function login() {
     await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin },
+      provider: 'google'
     });
   }
 
@@ -65,12 +53,8 @@ export default function Page() {
 
   useEffect(() => {
     checkAuth();
-
     const { data: listener } =
-      supabase.auth.onAuthStateChange(() => {
-        checkAuth();
-      });
-
+      supabase.auth.onAuthStateChange(() => checkAuth());
     return () => listener.subscription.unsubscribe();
   }, []);
 
@@ -89,15 +73,14 @@ export default function Page() {
       }
 
       setHasSubscription(true);
+
     } catch {
       window.location.href = '/billing';
     }
   }
 
   useEffect(() => {
-    if (user) {
-      checkSubscription();
-    }
+    if (user) checkSubscription();
   }, [user]);
 
   function handleImageUpload(files: FileList | null) {
@@ -107,21 +90,22 @@ export default function Page() {
 
   function translateError(error: string) {
     if (error === "limit_reached") return "You don't have enough credits.";
-    if (error === "servers_busy") return "Servers are busy. Try again in a moment.";
-    if (error === "Too many requests") return "Please wait a few seconds before generating again.";
-    if (error === "Generation already in progress") return "An image is already generating. Please wait.";
-    if (error === "no_subscription") return "You need an active subscription.";
-    return "Generation failed. Please try again.";
+    if (error === "servers_busy") return "Servers are busy.";
+    if (error === "Too many requests") return "Slow down.";
+    if (error === "Generation already in progress") return "Already generating.";
+    if (error === "no_subscription") return "You need a subscription.";
+    return "Generation failed.";
   }
 
   async function generate() {
+
     if (!prompt.trim() || loading) return;
 
     setLoading(true);
     setErrorMessage(null);
-    setResult(null);
 
     try {
+
       const formData = new FormData();
 
       formData.append('prompt', prompt);
@@ -130,7 +114,10 @@ export default function Page() {
 
       images.forEach((img) => formData.append('images', img));
 
-      const endpoint = model === 'nano' ? '/api/realify' : '/api/gpt';
+      const endpoint =
+        model === 'nano'
+          ? '/api/realify'
+          : '/api/gpt';
 
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -141,15 +128,16 @@ export default function Page() {
       const data = await res.json();
 
       if (!res.ok) {
-        const message = translateError(data?.error);
-        setErrorMessage(message);
+        setErrorMessage(translateError(data?.error));
         return;
       }
 
       setResult(data.image);
 
+      setRecentImages((prev) => [data.image, ...prev.slice(0, 3)]);
+
     } catch {
-      setErrorMessage("Network error. Please try again.");
+      setErrorMessage("Network error.");
     } finally {
       setLoading(false);
     }
@@ -166,137 +154,209 @@ export default function Page() {
   function shareImage() {
     if (!result) return;
     navigator.clipboard.writeText(result);
-    alert("Image link copied!");
+    alert("Copied!");
   }
 
   const ratios = model === 'nano' ? NANO_RATIOS : GPT_RATIOS;
 
   if (!user) {
     return (
-      <main style={{ maxWidth: 900, margin: 'auto', padding: 32 }}>
+      <main style={{ padding: 40 }}>
         <h1>Realify</h1>
-        <p>Create cinematic AI images instantly.</p>
-        <button onClick={login}>Login with Google</button>
+        <button onClick={login}>Login</button>
       </main>
     );
   }
 
   if (hasSubscription === null) {
-    return <main style={{ padding: 40 }}>Checking subscription...</main>;
+    return <main style={{ padding: 40 }}>Checking...</main>;
   }
 
   return (
-    <main>
 
-      {/* NAV */}
-      <div style={{ marginBottom: 20 }}>
+    <main style={{ padding: 30 }}>
+
+      <div style={{
+        position: 'fixed',
+        top: 20,
+        left: 20,
+        display: 'flex',
+        gap: 10,
+        zIndex: 10
+      }}>
         <button onClick={logout}>Logout</button>
         <button onClick={() => window.location.href = '/billing'}>Billing</button>
         <button onClick={() => window.location.href = '/explore'}>Explore</button>
         <button onClick={() => window.location.href = '/history'}>History</button>
       </div>
 
-      {/* GRID SPLIT */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div style={{
+        maxWidth: 1100,
+        margin: 'auto',
+        marginTop: 80,
+        padding: 25,
+        borderRadius: 20,
+        background: 'rgba(255,255,255,0.02)',
+        border: '1px solid rgba(0,255,156,0.15)',
+        backdropFilter: 'blur(12px)'
+      }}>
 
-        {/* LEFT PANEL */}
-        <div>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '0.9fr 1.1fr',
+          gap: 25
+        }}>
 
-          <textarea
-            rows={4}
-            placeholder="Describe your image..."
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-          />
+          <div>
 
-          <button onClick={generate}>
-            {loading ? 'Generating...' : 'Generate Image'}
-          </button>
+            <textarea
+              rows={4}
+              placeholder="Describe your image..."
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              style={{
+                width: '100%',
+                padding: 14,
+                borderRadius: 12,
+                background: 'rgba(0,0,0,0.4)',
+                border: '1px solid rgba(0,255,156,0.2)',
+                color: 'white'
+              }}
+            />
 
-          <div style={{ marginTop: 20 }}>
-            <button onClick={() => setShowAdvanced(!showAdvanced)}>
+            <button
+              onClick={generate}
+              style={{
+                marginTop: 15,
+                width: '100%',
+                padding: 14,
+                borderRadius: 12,
+                background: 'linear-gradient(90deg,#00ff9c,#00c97a)',
+                border: 'none',
+                fontWeight: 600
+              }}
+            >
+              {loading ? 'Generating...' : 'Generate Image'}
+            </button>
+
+            <button
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              style={{
+                marginTop: 10,
+                width: '100%',
+                padding: 10,
+                borderRadius: 10,
+                background: 'transparent',
+                border: '1px solid rgba(0,255,156,0.2)'
+              }}
+            >
               Advanced Settings
             </button>
 
             {showAdvanced && (
               <div style={{ marginTop: 15 }}>
 
-                <div>
-                  <label>Model</label>
-                  <select value={model} onChange={(e) => setModel(e.target.value as ModelChoice)}>
-                    <option value="nano">Nano Banana</option>
-                    <option value="gpt">GPT Image</option>
-                  </select>
-                </div>
+                <select value={model} onChange={(e) => setModel(e.target.value as ModelChoice)}>
+                  <option value="nano">Nano</option>
+                  <option value="gpt">GPT</option>
+                </select>
 
-                <div style={{ marginTop: 10 }}>
-                  <label>Quality</label>
-                  <select value={quality} onChange={(e) => setQuality(e.target.value as QualityChoice)}>
-                    <option value="auto">Auto</option>
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
-                </div>
+                <select value={quality} onChange={(e) => setQuality(e.target.value as QualityChoice)}>
+                  <option value="auto">Auto</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
 
-                <div style={{ marginTop: 10 }}>
-                  <label>Aspect Ratio</label>
-                  <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
-                    {ratios.map((r) => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
-                  </select>
-                </div>
+                <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
+                  {ratios.map((r) => (
+                    <option key={r}>{r}</option>
+                  ))}
+                </select>
 
-                <div style={{ marginTop: 10 }}>
-                  <label>Reference Images</label>
-                  <input type="file" multiple onChange={(e) => handleImageUpload(e.target.files)} />
-                </div>
+                <input type="file" multiple onChange={(e) => handleImageUpload(e.target.files)} />
 
               </div>
             )}
+
+            {errorMessage && (
+              <div style={{ color: 'red', marginTop: 10 }}>
+                {errorMessage}
+              </div>
+            )}
+
           </div>
 
-          {errorMessage && (
-            <div style={{ marginTop: 20, color: "red" }}>
-              {errorMessage}
-            </div>
-          )}
+          <div>
 
-        </div>
-
-        {/* RIGHT PANEL */}
-        <div>
-
-          {!result && (
-            <div style={{
-              height: 400,
-              borderRadius: 16,
-              border: "1px solid rgba(255,255,255,0.1)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              opacity: 0.6
-            }}>
-              Your image will appear here
-            </div>
-          )}
-
-          {result && (
-            <div>
-              <img src={result} style={{ width: "100%" }} />
-
-              <div style={{ marginTop: 15 }}>
-                <button onClick={downloadImage}>Download</button>
-                <button onClick={generate}>Generate Again</button>
-                <button onClick={shareImage}>Share</button>
+            {!result && (
+              <div style={{
+                width: '100%',
+                height: 450,
+                borderRadius: 18,
+                border: '1px solid rgba(255,255,255,0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: 0.6
+              }}>
+                Your image will appear here
               </div>
-            </div>
-          )}
+            )}
+
+            {result && (
+              <div>
+                <img src={result} style={{
+                  width: '100%',
+                  borderRadius: 16
+                }} />
+
+                <div style={{ marginTop: 10 }}>
+                  <button onClick={downloadImage}>Download</button>
+                  <button onClick={generate}>Again</button>
+                  <button onClick={shareImage}>Share</button>
+                </div>
+              </div>
+            )}
+
+          </div>
 
         </div>
 
       </div>
+
+      {recentImages.length > 0 && (
+        <div style={{
+          maxWidth: 1100,
+          margin: 'auto',
+          marginTop: 30
+        }}>
+
+          <h3 style={{ marginBottom: 10 }}>Recent Images</h3>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: 10
+          }}>
+
+            {recentImages.map((img, i) => (
+              <img
+                key={i}
+                src={img}
+                style={{
+                  width: '100%',
+                  borderRadius: 10,
+                  cursor: 'pointer'
+                }}
+                onClick={() => setResult(img)}
+              />
+            ))}
+
+          </div>
+
+        </div>
+      )}
 
     </main>
   );
