@@ -24,6 +24,11 @@ export default function BillingPage() {
 
       const data = await res.json();
       setSub(data);
+
+      // 🔥 FIX: if active → go home
+      if (data.active) {
+        window.location.href = "/";
+      }
     }
 
     loadStatus();
@@ -105,8 +110,6 @@ export default function BillingPage() {
     >
       <h1>Manage Subscription</h1>
 
-      {/* CURRENT PLAN */}
-
       <div
         style={{
           border: "1px solid #ddd",
@@ -125,8 +128,6 @@ export default function BillingPage() {
           <p>You do not currently have an active subscription.</p>
         )}
       </div>
-
-      {/* PLANS */}
 
       <div
         style={{
@@ -167,8 +168,6 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {/* CREDIT BUNDLES */}
-
       {sub.active && (
         <div
           style={{
@@ -184,41 +183,8 @@ export default function BillingPage() {
             Need more generations? Purchase additional credits that stack with
             your subscription.
           </p>
-
-          <div style={{ marginTop: "20px" }}>
-            <h4>$5 Bundle</h4>
-            <p>≈100 credits</p>
-
-            <button onClick={() => buyCredits("small")}>
-              Buy $5 Credits
-            </button>
-          </div>
-
-          <hr style={{ margin: "25px 0" }} />
-
-          <div>
-            <h4>$10 Bundle</h4>
-            <p>≈200 credits</p>
-
-            <button onClick={() => buyCredits("medium")}>
-              Buy $10 Credits
-            </button>
-          </div>
-
-          <hr style={{ margin: "25px 0" }} />
-
-          <div>
-            <h4>$15 Bundle</h4>
-            <p>≈300 credits</p>
-
-            <button onClick={() => buyCredits("large")}>
-              Buy $15 Credits
-            </button>
-          </div>
         </div>
       )}
-
-      {/* BILLING SETTINGS */}
 
       <div
         style={{
@@ -229,10 +195,6 @@ export default function BillingPage() {
         }}
       >
         <h3>Billing Settings</h3>
-
-        <p>
-          Update payment method or cancel your subscription through Stripe.
-        </p>
 
         <button onClick={openPortal} style={{ marginTop: "10px" }}>
           Manage Payment / Cancel Subscription
