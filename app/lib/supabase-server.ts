@@ -13,16 +13,11 @@ export async function getSupabaseServer() {
           return cookieStore.getAll();
         },
         setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options as CookieOptions);
-            });
-          } catch {
-            // Some environments cookies may be read-only
-          }
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options as CookieOptions);
+          });
         },
       },
     }
   );
 }
-

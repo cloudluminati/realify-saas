@@ -36,13 +36,25 @@ export default function Page() {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   async function checkAuth() {
-    const { data: { session } } = await supabase.auth.getSession();
-    setUser(session?.user ?? null);
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+
+    if (error) {
+      setUser(null);
+      return;
+    }
+
+    setUser(user ?? null);
   }
 
   async function login() {
     await supabase.auth.signInWithOAuth({
-      provider: 'google'
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/api/auth/callback`
+      }
     });
   }
 
@@ -52,9 +64,42 @@ export default function Page() {
   }
 
   useEffect(() => {
-    checkAuth();
+    const initAuth = async () => {
+      const url = new URL(window.location.href);
+      const code = url.searchParams.get('code');
+
+      if (code) {
+        try {
+          await supabase.auth.exchangeCodeForSession(code);
+        } catch (err) {
+          console.error('exchangeCodeForSession failed:', err);
+        }
+
+        url.searchParams.delete('code');
+        window.history.replaceState({}, document.title, url.pathname + url.search);
+      }
+
+      await checkAuth();
+    };
+
+    initAuth();
+
     const { data: listener } =
-      supabase.auth.onAuthStateChange(() => checkAuth());
+      supabase.auth.onAuthStateChange(async (event) => {
+        if (
+          event === 'SIGNED_IN' ||
+          event === 'INITIAL_SESSION' ||
+          event === 'TOKEN_REFRESHED'
+        ) {
+          await checkAuth();
+        }
+
+        if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setHasSubscription(null);
+        }
+      });
+
     return () => listener.subscription.unsubscribe();
   }, []);
 
@@ -68,19 +113,23 @@ export default function Page() {
       const data = await res.json();
 
       if (!data.active) {
-        window.location.href = '/billing';
+        setHasSubscription(false);
         return;
       }
 
       setHasSubscription(true);
 
     } catch {
-      window.location.href = '/billing';
+      setHasSubscription(false);
     }
   }
 
   useEffect(() => {
-    if (user) checkSubscription();
+    if (user) {
+      checkSubscription();
+    } else {
+      setHasSubscription(null);
+    }
   }, [user]);
 
   function handleImageUpload(files: FileList | null) {
@@ -100,6 +149,11 @@ export default function Page() {
   async function generate() {
 
     if (!prompt.trim() || loading) return;
+
+    if (!hasSubscription) {
+      window.location.href = '/billing';
+      return;
+    }
 
     setLoading(true);
     setErrorMessage(null);
@@ -133,7 +187,6 @@ export default function Page() {
       }
 
       setResult(data.image);
-
       setRecentImages((prev) => [data.image, ...prev.slice(0, 3)]);
 
     } catch {
