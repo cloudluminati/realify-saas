@@ -65,6 +65,7 @@ export default function Page() {
 
   useEffect(() => {
     const initAuth = async () => {
+      await new Promise(res => setTimeout(res, 100));
       await checkAuth();
     };
 
