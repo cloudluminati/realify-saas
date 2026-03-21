@@ -8,7 +8,7 @@ export const fetchCache = "force-no-store"; // ✅ VERY IMPORTANT
 
 export async function GET(request: Request) {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
 
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
