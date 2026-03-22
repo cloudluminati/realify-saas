@@ -28,6 +28,7 @@ export default function Page() {
 
   const [images, setImages] = useState<File[]>([]);
   const [result, setResult] = useState<string | null>(null);
+  const [recentImages, setRecentImages] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -38,10 +39,7 @@ export default function Page() {
     let mounted = true;
 
     const init = async () => {
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
+      const { data: { user }, error } = await supabase.auth.getUser();
 
       if (!mounted) return;
 
@@ -112,9 +110,7 @@ export default function Page() {
   }
 
   useEffect(() => {
-    if (user) {
-      checkSubscription();
-    }
+    if (user) checkSubscription();
   }, [user]);
 
   function handleImageUpload(files: FileList | null) {
@@ -168,6 +164,7 @@ export default function Page() {
       }
 
       setResult(data.image);
+      setRecentImages(prev => [data.image, ...prev].slice(0, 4));
 
     } catch {
       setErrorMessage("Network error.");
@@ -176,27 +173,13 @@ export default function Page() {
     }
   }
 
-  function downloadImage() {
-    if (!result) return;
-    const link = document.createElement('a');
-    link.href = result;
-    link.download = 'realify-image.png';
-    link.click();
-  }
-
-  function shareImage() {
-    if (!result) return;
-    navigator.clipboard.writeText(result);
-    alert("Copied!");
-  }
-
   const ratios = model === 'nano' ? NANO_RATIOS : GPT_RATIOS;
 
   if (!user) {
     return (
       <main style={{ padding: 40 }}>
         <h1>Realify</h1>
-        <button onClick={login}>Login</button>
+        <button style={{background:'rgba(0,0,0,0.6)',border:'1px solid rgba(255,255,255,0.15)',padding:'10px 14px',borderRadius:8,color:'#fff',cursor:'pointer'}} onClick={login}>Login</button>
       </main>
     );
   }
@@ -206,36 +189,56 @@ export default function Page() {
   }
 
   return (
-    <>
-      {/* LEFT SIDE (CONTROLS) */}
-      <div>
+    <main style={{ padding: '80px 20px 20px 20px', maxWidth: 1200, margin: '0 auto' }}>
 
-        <div style={{ marginBottom: 20 }}>
-          <button onClick={logout}>Logout</button>
-          <button onClick={() => window.location.href = '/billing'}>Billing</button>
-          <button onClick={() => window.location.href = '/explore'}>Explore</button>
-          <button onClick={() => window.location.href = '/history'}>History</button>
-        </div>
+      {/* TOP NAV */}
+      <div style={{
+        position: 'absolute', top: 20, right: 20, display: 'flex',
+        gap: 10,
+        marginBottom: 20
+      }}>
+        <button style={{background:'rgba(0,0,0,0.6)',border:'1px solid rgba(255,255,255,0.15)',padding:'10px 14px',borderRadius:8,color:'#fff',cursor:'pointer'}} onClick={logout}>Logout</button>
+        <button style={{background:'rgba(0,0,0,0.6)',border:'1px solid rgba(255,255,255,0.15)',padding:'10px 14px',borderRadius:8,color:'#fff',cursor:'pointer'}} onClick={() => window.location.href = '/billing'}>Billing</button>
+        <button style={{background:'rgba(0,0,0,0.6)',border:'1px solid rgba(255,255,255,0.15)',padding:'10px 14px',borderRadius:8,color:'#fff',cursor:'pointer'}} onClick={() => window.location.href = '/explore'}>Explore</button>
+        <button style={{background:'rgba(0,0,0,0.6)',border:'1px solid rgba(255,255,255,0.15)',padding:'10px 14px',borderRadius:8,color:'#fff',cursor:'pointer'}} onClick={() => window.location.href = '/history'}>History</button>
+      </div>
 
-        <textarea
-          rows={4}
-          placeholder="Describe your image..."
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-        />
+      {/* MAIN GRID */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1.6fr',
+        gap: 30,
+        alignItems: 'start'
+      }}>
 
-        <button onClick={generate}>
-          {loading ? 'Generating...' : 'Generate Image'}
-        </button>
+        {/* LEFT */}
+        <div style={{
+          background: 'rgba(15,15,20,0.75)', backdropFilter: 'blur(20px)', boxShadow: '0 0 40px rgba(0,255,156,0.08) inset, 0 0 20px rgba(0,0,0,0.6)',
+          padding: 20,
+          borderRadius: 16,
+          border: '1px solid rgba(255,255,255,0.08)'
+        }}>
 
-        <div style={{ marginTop: 20 }}>
-          <button onClick={() => setShowAdvanced(!showAdvanced)}>
-            Advanced Settings
+          
+
+          <textarea
+            rows={4}
+            style={{ width: '100%', marginTop: 10 }}
+            placeholder="Describe your image..."
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+          />
+
+          <button style={{background:'rgba(0,0,0,0.6)',border:'1px solid rgba(255,255,255,0.15)',padding:'10px 14px',borderRadius:8,color:'#fff',cursor:'pointer'}} onClick={generate} style={{ marginTop: 10 }}>
+            {loading ? 'Generating...' : 'Generate'}
+          </button>
+
+          <button style={{background:'rgba(0,0,0,0.6)',border:'1px solid rgba(255,255,255,0.15)',padding:'10px 14px',borderRadius:8,color:'#fff',cursor:'pointer'}} onClick={() => setShowAdvanced(!showAdvanced)} style={{ marginTop: 10 }}>
+            Advanced
           </button>
 
           {showAdvanced && (
-            <div style={{ marginTop: 15 }}>
-
+            <div style={{ marginTop: 10 }}>
               <select value={model} onChange={(e) => setModel(e.target.value as ModelChoice)}>
                 <option value="nano">Nano</option>
                 <option value="gpt">GPT</option>
@@ -249,55 +252,48 @@ export default function Page() {
               </select>
 
               <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
-                {ratios.map((r) => (
-                  <option key={r}>{r}</option>
-                ))}
+                {ratios.map((r) => <option key={r}>{r}</option>)}
               </select>
 
               <input type="file" multiple onChange={(e) => handleImageUpload(e.target.files)} />
-
             </div>
           )}
+
         </div>
 
-        {errorMessage && (
-          <div style={{ color: 'red', marginTop: 10 }}>
-            {errorMessage}
-          </div>
-        )}
+        {/* RIGHT */}
+        <div style={{
+          background: 'rgba(15,15,20,0.75)', backdropFilter: 'blur(20px)', boxShadow: '0 0 40px rgba(0,255,156,0.08) inset, 0 0 20px rgba(0,0,0,0.6)',
+          padding: 20,
+          borderRadius: 16,
+          border: '1px solid rgba(255,255,255,0.08)',
+          minHeight: 600
+        }}>
 
-      </div>
-
-      {/* RIGHT SIDE (RESULT) */}
-      <div>
-
-        {!result && (
-          <div style={{
-            height: 400,
-            borderRadius: 12,
-            border: '1px solid rgba(255,255,255,0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: 0.5
-          }}>
-            Your image will appear here
-          </div>
-        )}
-
-        {result && (
-          <div>
-            <img src={result} style={{ width: '100%' }} />
-
-            <div style={{ marginTop: 10 }}>
-              <button onClick={downloadImage}>Download</button>
-              <button onClick={generate}>Again</button>
-              <button onClick={shareImage}>Share</button>
+          {!result ? (
+            <div style={{ opacity: 0.5, textAlign: 'center', marginTop: 100 }}>
+              Your image will appear here
             </div>
-          </div>
-        )}
+          ) : (
+            <img src={result} style={{ width: '100%' }} />
+          )}
+
+        </div>
 
       </div>
-    </>
+
+      {/* RECENT IMAGES */}
+      {recentImages.length > 0 && (
+        <div style={{ marginTop: 30 }}>
+          <h3>Recent</h3>
+          <div style={{ position: 'absolute', top: 20, right: 20, display: 'flex', gap: 14, justifyContent: 'center', marginTop: 10 }}>
+            {recentImages.map((img, i) => (
+              <img key={i} src={img} style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)' }} />
+            ))}
+          </div>
+        </div>
+      )}
+
+    </main>
   );
 }

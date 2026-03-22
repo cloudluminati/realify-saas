@@ -26,8 +26,8 @@ export default function BillingPage() {
       setSub(data);
 
       // 🔥 FIX: if active → go home
-      if (data.active) {
-        window.location.href = "/";
+      // if (data.active) {
+        // window.location.href = "/";
       }
     }
 
