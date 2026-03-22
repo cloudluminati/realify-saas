@@ -118,15 +118,6 @@ export default function Page() {
     setImages(Array.from(files));
   }
 
-  function translateError(error: string) {
-    if (error === "limit_reached") return "You don't have enough credits.";
-    if (error === "servers_busy") return "Servers are busy.";
-    if (error === "Too many requests") return "Slow down.";
-    if (error === "Generation already in progress") return "Already generating.";
-    if (error === "no_subscription") return "You need a subscription.";
-    return "Generation failed.";
-  }
-
   async function generate() {
 
     if (!prompt.trim() || loading) return;
@@ -158,16 +149,11 @@ export default function Page() {
 
       const data = await res.json();
 
-      if (!res.ok) {
-        setErrorMessage(translateError(data?.error));
-        return;
-      }
+      if (!res.ok) return;
 
       setResult(data.image);
       setRecentImages(prev => [data.image, ...prev].slice(0, 4));
 
-    } catch {
-      setErrorMessage("Network error.");
     } finally {
       setLoading(false);
     }
@@ -179,7 +165,7 @@ export default function Page() {
     return (
       <main style={{ padding: 40 }}>
         <h1>Realify</h1>
-        <button style={{background:'rgba(0,0,0,0.6)',border:'1px solid rgba(255,255,255,0.15)',padding:'10px 14px',borderRadius:8,color:'#fff',cursor:'pointer'}} onClick={login}>Login</button>
+        <button onClick={login}>Login</button>
       </main>
     );
   }
@@ -189,56 +175,54 @@ export default function Page() {
   }
 
   return (
-    <main style={{ padding: '80px 20px 20px 20px', maxWidth: 1200, margin: '0 auto' }}>
+    <main style={{ padding: '80px 20px', maxWidth: 1200, margin: '0 auto' }}>
 
-      {/* TOP NAV */}
-      <div style={{
-        position: 'absolute', top: 20, right: 20, display: 'flex',
-        gap: 10,
-        marginBottom: 20
-      }}>
-        <button style={{background:'rgba(0,0,0,0.6)',border:'1px solid rgba(255,255,255,0.15)',padding:'10px 14px',borderRadius:8,color:'#fff',cursor:'pointer'}} onClick={logout}>Logout</button>
-        <button style={{background:'rgba(0,0,0,0.6)',border:'1px solid rgba(255,255,255,0.15)',padding:'10px 14px',borderRadius:8,color:'#fff',cursor:'pointer'}} onClick={() => window.location.href = '/billing'}>Billing</button>
-        <button style={{background:'rgba(0,0,0,0.6)',border:'1px solid rgba(255,255,255,0.15)',padding:'10px 14px',borderRadius:8,color:'#fff',cursor:'pointer'}} onClick={() => window.location.href = '/explore'}>Explore</button>
-        <button style={{background:'rgba(0,0,0,0.6)',border:'1px solid rgba(255,255,255,0.15)',padding:'10px 14px',borderRadius:8,color:'#fff',cursor:'pointer'}} onClick={() => window.location.href = '/history'}>History</button>
+      {/* NAV */}
+      <div style={{ position: 'absolute', top: 20, right: 20, display: 'flex', gap: 10 }}>
+        <button onClick={logout}>Logout</button>
+        <button onClick={() => window.location.href = '/billing'}>Billing</button>
+        <button onClick={() => window.location.href = '/explore'}>Explore</button>
+        <button onClick={() => window.location.href = '/history'}>History</button>
       </div>
 
-      {/* MAIN GRID */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1.6fr',
-        gap: 30,
-        alignItems: 'start'
-      }}>
+      {/* GRID */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr', gap: 30 }}>
 
         {/* LEFT */}
         <div style={{
-          background: 'rgba(15,15,20,0.75)', backdropFilter: 'blur(20px)', boxShadow: '0 0 40px rgba(0,255,156,0.08) inset, 0 0 20px rgba(0,0,0,0.6)',
-          padding: 20,
-          borderRadius: 16,
+          background: 'linear-gradient(180deg, rgba(20,20,30,0.85), rgba(10,10,15,0.95))',
+          padding: 24,
+          borderRadius: 18,
           border: '1px solid rgba(255,255,255,0.08)'
         }}>
 
-          
-
-          <textarea
-            rows={4}
-            style={{ width: '100%', marginTop: 10 }}
+          <textarea style={{display:'block',width:'100%',height:140,marginTop:0,padding:14,borderRadius:12,background:'rgba(0,0,0,0.4)',color:'#fff',border:'1px solid rgba(255,255,255,0.1)'}}
+            style={{
+              width: '100%',
+              height: 140,
+              borderRadius: 12,
+              padding: 14,
+              background: 'rgba(0,0,0,0.4)',
+              color: '#fff',
+              border: '1px solid rgba(255,255,255,0.1)'
+            }}
             placeholder="Describe your image..."
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
           />
 
-          <button style={{background:'rgba(0,0,0,0.6)',border:'1px solid rgba(255,255,255,0.15)',padding:'10px 14px',borderRadius:8,color:'#fff',cursor:'pointer'}} onClick={generate} style={{ marginTop: 10 }}>
-            {loading ? 'Generating...' : 'Generate'}
-          </button>
+          <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+            <button onClick={generate}>
+              {loading ? 'Generating...' : 'Generate'}
+            </button>
 
-          <button style={{background:'rgba(0,0,0,0.6)',border:'1px solid rgba(255,255,255,0.15)',padding:'10px 14px',borderRadius:8,color:'#fff',cursor:'pointer'}} onClick={() => setShowAdvanced(!showAdvanced)} style={{ marginTop: 10 }}>
-            Advanced
-          </button>
+            <button onClick={() => setShowAdvanced(!showAdvanced)}>
+              Advanced
+            </button>
+          </div>
 
           {showAdvanced && (
-            <div style={{ marginTop: 10 }}>
+            <div style={{ marginTop: 16 }}>
               <select value={model} onChange={(e) => setModel(e.target.value as ModelChoice)}>
                 <option value="nano">Nano</option>
                 <option value="gpt">GPT</option>
@@ -263,32 +247,45 @@ export default function Page() {
 
         {/* RIGHT */}
         <div style={{
-          background: 'rgba(15,15,20,0.75)', backdropFilter: 'blur(20px)', boxShadow: '0 0 40px rgba(0,255,156,0.08) inset, 0 0 20px rgba(0,0,0,0.6)',
-          padding: 20,
-          borderRadius: 16,
+          background: 'rgba(15,15,20,0.8)',
+          padding: 24,
+          borderRadius: 18,
           border: '1px solid rgba(255,255,255,0.08)',
           minHeight: 600
         }}>
-
           {!result ? (
-            <div style={{ opacity: 0.5, textAlign: 'center', marginTop: 100 }}>
+            <div style={{ opacity: 0.5, textAlign: 'center', marginTop: 120 }}>
               Your image will appear here
             </div>
           ) : (
-            <img src={result} style={{ width: '100%' }} />
+            <img src={result} style={{ width: '100%', borderRadius: 12 }} />
           )}
-
         </div>
 
       </div>
 
-      {/* RECENT IMAGES */}
+      {/* RECENT */}
       {recentImages.length > 0 && (
-        <div style={{ marginTop: 30 }}>
+        <div style={{ marginTop: 40 }}>
           <h3>Recent</h3>
-          <div style={{ position: 'absolute', top: 20, right: 20, display: 'flex', gap: 14, justifyContent: 'center', marginTop: 10 }}>
+
+          <div style={{
+            display: 'flex',
+            gap: 14,
+            marginTop: 14
+          }}>
             {recentImages.map((img, i) => (
-              <img key={i} src={img} style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)' }} />
+              <img
+                key={i}
+                src={img}
+                style={{
+                  width: 120,
+                  height: 120,
+                  objectFit: 'cover',
+                  borderRadius: 12,
+                  border: '1px solid rgba(255,255,255,0.08)'
+                }}
+              />
             ))}
           </div>
         </div>
