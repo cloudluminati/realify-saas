@@ -253,14 +253,37 @@ export default function Page() {
               {loading ? "Generating..." : "Your image will appear here"}
             </div>
           ) : (
-            <img
-              src={result}
-              style={{
-                maxWidth: '100%',
-                maxHeight: '70vh',
-                borderRadius: 12
-              }}
-            />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+              
+              <img
+                src={result}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '70vh',
+                  borderRadius: 12
+                }}
+              />
+
+              <button
+                onClick={() => {
+                  const link = document.createElement('a');
+                  link.href = result;
+                  link.download = `realify-${Date.now()}.png`;
+                  link.click();
+                }}
+                style={{
+                  padding: '10px 16px',
+                  borderRadius: 10,
+                  background: 'white',
+                  color: 'black',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Download
+              </button>
+
+            </div>
           )}
         </div>
 
