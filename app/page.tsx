@@ -9,17 +9,9 @@ import { supabase } from '@/app/lib/supabase';
 type ModelChoice = 'nano' | 'gpt';
 type QualityChoice = 'auto' | 'low' | 'medium' | 'high';
 
-const NANO_RATIOS = [
-  'match_input_image',
-  '1:1','2:3','3:2','3:4','4:3','4:5','5:4','9:16','16:9','21:9',
-];
-
-const GPT_RATIOS = ['1:1', '3:2', '2:3'];
-
 export default function Page() {
 
   const [user, setUser] = useState<any>(null);
-  const [hasSubscription, setHasSubscription] = useState<boolean | null>(null);
 
   const [model, setModel] = useState<ModelChoice>('nano');
   const [quality, setQuality] = useState<QualityChoice>('auto');
@@ -28,90 +20,38 @@ export default function Page() {
 
   const [images, setImages] = useState<File[]>([]);
   const [result, setResult] = useState<string | null>(null);
-  const [recentImages, setRecentImages] = useState<string[]>([]);
+  const [recentImages, setRecentImages] = useState<{image:string,prompt:string}[]>([]);
 
   const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
-    let mounted = true;
+    async function loadRecent() {
+      try {
+        const res = await fetch("/api/gallery", { cache: "no-store" });
+        const data = await res.json();
 
-    const init = async () => {
-      const { data: { user }, error } = await supabase.auth.getUser();
-
-      if (!mounted) return;
-
-      if (error) {
-        setUser(null);
-        return;
-      }
-
-      setUser(user ?? null);
-    };
-
-    init();
-
-    const { data: listener } =
-      supabase.auth.onAuthStateChange((event, session) => {
-        if (
-          event === 'SIGNED_IN' ||
-          event === 'INITIAL_SESSION' ||
-          event === 'TOKEN_REFRESHED'
-        ) {
-          setUser(session?.user ?? null);
+        if (data?.images) {
+          setRecentImages(
+            data.images.slice(0, 4).map((img: any) => ({
+              image: img.image_url,
+              prompt: img.prompt || ""
+            }))
+          );
         }
+      } catch {}
+    }
 
-        if (event === 'SIGNED_OUT') {
-          setUser(null);
-          setHasSubscription(null);
-        }
-      });
-
-    return () => {
-      mounted = false;
-      listener.subscription.unsubscribe();
-    };
+    loadRecent();
   }, []);
 
-  async function login() {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/api/auth/callback`,
-      },
-    });
-  }
-
-  async function logout() {
-    await supabase.auth.signOut();
-    location.reload();
-  }
-
-  async function checkSubscription() {
-    try {
-      const res = await fetch('/api/subscription-status', {
-        cache: 'no-store',
-        credentials: 'include',
-      });
-
-      const data = await res.json();
-
-      if (!data.active) {
-        window.location.href = '/billing';
-        return;
-      }
-
-      setHasSubscription(true);
-    } catch {
-      window.location.href = '/billing';
-    }
-  }
-
   useEffect(() => {
-    if (user) checkSubscription();
-  }, [user]);
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user ?? null);
+    }
+    init();
+  }, []);
 
   function handleImageUpload(files: FileList | null) {
     if (!files) return;
@@ -119,27 +59,17 @@ export default function Page() {
   }
 
   async function generate() {
-
     if (!prompt.trim() || loading) return;
 
     setLoading(true);
-    setErrorMessage(null);
     setResult(null);
 
     try {
-
       const formData = new FormData();
-
       formData.append('prompt', prompt);
-      formData.append('aspectRatio', aspectRatio);
-      formData.append('quality', quality);
+      formData.append('aspect_ratio', aspectRatio); // ✅ RESTORED
 
-      images.forEach((img) => formData.append('images', img));
-
-      const endpoint =
-        model === 'nano'
-          ? '/api/realify'
-          : '/api/gpt';
+      const endpoint = model === 'nano' ? '/api/realify' : '/api/gpt';
 
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -149,61 +79,70 @@ export default function Page() {
 
       const data = await res.json();
 
-      if (!res.ok) return;
+      const img =
+        data.image ||
+        data.url ||
+        (Array.isArray(data.output) ? data.output[0] : data.output);
 
-      setResult(data.image);
-      setRecentImages(prev => [data.image, ...prev].slice(0, 4));
+      setResult(img);
+      setRecentImages(prev => [{ image: img, prompt }, ...prev].slice(0, 4));
 
     } finally {
       setLoading(false);
     }
   }
 
-  const ratios = model === 'nano' ? NANO_RATIOS : GPT_RATIOS;
-
   if (!user) {
     return (
       <main style={{ padding: 40 }}>
         <h1>Realify</h1>
-        <button onClick={login}>Login</button>
+        <button onClick={() => supabase.auth.signInWithOAuth({ provider: 'google' })}>
+          Login
+        </button>
       </main>
     );
   }
 
-  if (hasSubscription === null) {
-    return <main style={{ padding: 40 }}>Checking...</main>;
-  }
-
   return (
-    <main style={{ padding: '80px 20px', maxWidth: 1200, margin: '0 auto' }}>
+    <main style={{ padding: 40, maxWidth: 1400, margin: '0 auto' }}>
 
       {/* NAV */}
-      <div style={{ position: 'absolute', top: 20, right: 20, display: 'flex', gap: 10 }}>
-        <button onClick={logout}>Logout</button>
+      <div style={{
+        position: 'fixed',
+        top: 20,
+        right: 20,
+        display: 'flex',
+        gap: 10
+      }}>
+        <button onClick={() => supabase.auth.signOut()}>Logout</button>
         <button onClick={() => window.location.href = '/billing'}>Billing</button>
         <button onClick={() => window.location.href = '/explore'}>Explore</button>
         <button onClick={() => window.location.href = '/history'}>History</button>
       </div>
 
       {/* GRID */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr', gap: 30 }}>
+      <div style={{
+        display: 'grid', maxWidth: '100%', overflow: 'hidden',
+        gridTemplateColumns: '0.9fr 2.1fr', minWidth: 0,
+        gap: 30
+      }}>
 
-        {/* LEFT */}
+        {/* LEFT PANEL */}
         <div style={{
-          background: 'linear-gradient(180deg, rgba(20,20,30,0.85), rgba(10,10,15,0.95))',
+          background: '#0b0b0b', // ✅ SOLID so it's visible
           padding: 24,
-          borderRadius: 18,
-          border: '1px solid rgba(255,255,255,0.08)'
+          borderRadius: 16, minWidth: 0,
+          border: '1px solid rgba(255,255,255,0.1)'
         }}>
 
-          <textarea style={{display:'block',width:'100%',height:140,marginTop:0,padding:14,borderRadius:12,background:'rgba(0,0,0,0.4)',color:'#fff',border:'1px solid rgba(255,255,255,0.1)'}}
+          <textarea
             style={{
               width: '100%',
               height: 140,
-              borderRadius: 12,
-              padding: 14,
-              background: 'rgba(0,0,0,0.4)',
-              color: '#fff',
+              padding: 12,
+              borderRadius: 10,
+              background: '#000',
+              color: 'white',
               border: '1px solid rgba(255,255,255,0.1)'
             }}
             placeholder="Describe your image..."
@@ -211,54 +150,96 @@ export default function Page() {
             onChange={(e) => setPrompt(e.target.value)}
           />
 
-          <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-            <button onClick={generate}>
+          <div style={{
+            marginTop: 14,
+            display: 'flex',
+            gap: 10
+          }}>
+            <button
+              onClick={generate}
+              style={{
+                flex: 1,
+                padding: 12,
+                borderRadius: 10,
+                background: 'white',
+                color: 'black',
+                fontWeight: 600
+              }}
+            >
               {loading ? 'Generating...' : 'Generate'}
             </button>
 
-            <button onClick={() => setShowAdvanced(!showAdvanced)}>
+            <button
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              style={{
+                padding: 12,
+                borderRadius: 10,
+                border: '1px solid rgba(255,255,255,0.2)',
+                color: 'white'
+              }}
+            >
               Advanced
             </button>
           </div>
 
           {showAdvanced && (
-            <div style={{ marginTop: 16 }}>
+            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+
               <select value={model} onChange={(e) => setModel(e.target.value as ModelChoice)}>
                 <option value="nano">Nano</option>
                 <option value="gpt">GPT</option>
               </select>
 
-              <select value={quality} onChange={(e) => setQuality(e.target.value as QualityChoice)}>
-                <option value="auto">Auto</option>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
+              {/* ✅ RESTORED ASPECT RATIO */}
+              <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
+                <option value="1:1">1:1</option>
+                <option value="16:9">16:9</option>
+                <option value="9:16">9:16</option>
+                <option value="4:5">4:5</option>
+                <option value="3:2">3:2</option>
+                <option value="2:3">2:3</option>
               </select>
 
-              <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
-                {ratios.map((r) => <option key={r}>{r}</option>)}
-              </select>
+              {model === "gpt" && (
+                <select value={quality} onChange={(e) => setQuality(e.target.value as QualityChoice)}>
+                  <option value="auto">Auto</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              )}
 
               <input type="file" multiple onChange={(e) => handleImageUpload(e.target.files)} />
+
             </div>
           )}
 
         </div>
 
-        {/* RIGHT */}
+        {/* RIGHT PANEL */}
         <div style={{
-          background: 'rgba(15,15,20,0.8)',
-          padding: 24,
-          borderRadius: 18,
-          border: '1px solid rgba(255,255,255,0.08)',
-          minHeight: 600
+          background: '#0b0b0b', // ✅ FIXED VISIBILITY
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: 16, minWidth: 0,
+          padding: 20,
+          minHeight: 500,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
         }}>
           {!result ? (
-            <div style={{ opacity: 0.5, textAlign: 'center', marginTop: 120 }}>
-              Your image will appear here
+            <div style={{ opacity: 0.4, color: 'white' }}>
+              {loading ? "Generating..." : "Your image will appear here"}
             </div>
           ) : (
-            <img src={result} style={{ width: '100%', borderRadius: 12 }} />
+            <img
+              src={result}
+              style={{
+                maxWidth: '100%',
+                maxHeight: '70vh',
+                borderRadius: 12
+              }}
+            />
           )}
         </div>
 
@@ -267,23 +248,22 @@ export default function Page() {
       {/* RECENT */}
       {recentImages.length > 0 && (
         <div style={{ marginTop: 40 }}>
-          <h3>Recent</h3>
-
-          <div style={{
-            display: 'flex',
-            gap: 14,
-            marginTop: 14
-          }}>
+          <h3 style={{ marginBottom: 10 }}>Recent</h3>
+          <div style={{ display: 'flex', gap: 12 }}>
             {recentImages.map((img, i) => (
               <img
                 key={i}
-                src={img}
+                src={img.image}
+                onClick={() => {
+                  setPrompt(img.prompt);
+                  setResult(img.image);
+                }}
                 style={{
-                  width: 120,
-                  height: 120,
+                  width: 110,
+                  height: 110,
                   objectFit: 'cover',
-                  borderRadius: 12,
-                  border: '1px solid rgba(255,255,255,0.08)'
+                  borderRadius: 10,
+                  cursor: 'pointer'
                 }}
               />
             ))}

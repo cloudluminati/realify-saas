@@ -24,11 +24,6 @@ export default function BillingPage() {
 
       const data = await res.json();
       setSub(data);
-
-      // 🔥 FIX: if active → go home
-      // if (data.active) {
-        // window.location.href = "/";
-      }
     }
 
     loadStatus();
@@ -61,16 +56,9 @@ export default function BillingPage() {
   };
 
   const buyCredits = async (bundle: "small" | "medium" | "large") => {
-    if (!sub.active) {
-      alert("You must have an active subscription to purchase credits.");
-      return;
-    }
-
     const res = await fetch("/api/stripe/credits-checkout", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify({ bundle }),
     });
@@ -100,104 +88,57 @@ export default function BillingPage() {
   };
 
   return (
-    <div
-      style={{
-        maxWidth: "800px",
-        margin: "40px auto",
-        padding: "20px",
-        fontFamily: "sans-serif",
-      }}
-    >
+    <div style={{ maxWidth: "800px", margin: "40px auto", padding: "20px" }}>
       <h1>Manage Subscription</h1>
 
-      <div
-        style={{
-          border: "1px solid #ddd",
-          padding: "20px",
-          borderRadius: "8px",
-          marginTop: "30px",
-        }}
-      >
+      <div style={{ marginTop: 30 }}>
         <h3>Current Plan</h3>
-
         {sub.active ? (
           <p>
             <strong>Plan:</strong> {sub.plan}
           </p>
         ) : (
-          <p>You do not currently have an active subscription.</p>
+          <p>No active subscription</p>
         )}
       </div>
 
-      <div
-        style={{
-          border: "1px solid #ddd",
-          padding: "20px",
-          borderRadius: "8px",
-          marginTop: "30px",
-        }}
-      >
+      <div style={{ marginTop: 30 }}>
         <h3>Available Plans</h3>
 
-        <div style={{ marginTop: "20px" }}>
-          <h4>Starter</h4>
-          <p>$7.87 / week</p>
-
-          <button
-            disabled={loading || sub.plan === "starter"}
-            onClick={() => upgradePlan("starter")}
-            style={{ marginTop: "10px" }}
-          >
-            {sub.plan === "starter" ? "Current Plan" : "Select Starter"}
+        <div style={{ marginTop: 10 }}>
+          <button disabled={loading} onClick={() => upgradePlan("starter")}>
+            Starter - $7.87/week
           </button>
         </div>
 
-        <hr style={{ margin: "25px 0" }} />
-
-        <div>
-          <h4>Creator</h4>
-          <p>$29.99 / month</p>
-
-          <button
-            disabled={loading || sub.plan === "creator"}
-            onClick={() => upgradePlan("creator")}
-            style={{ marginTop: "10px" }}
-          >
-            {sub.plan === "creator" ? "Current Plan" : "Select Creator"}
+        <div style={{ marginTop: 10 }}>
+          <button disabled={loading} onClick={() => upgradePlan("creator")}>
+            Creator - $29.99/month
           </button>
         </div>
       </div>
 
       {sub.active && (
-        <div
-          style={{
-            border: "1px solid #ddd",
-            padding: "20px",
-            borderRadius: "8px",
-            marginTop: "30px",
-          }}
-        >
+        <div style={{ marginTop: 30 }}>
           <h3>Buy Extra Credits</h3>
 
-          <p>
-            Need more generations? Purchase additional credits that stack with
-            your subscription.
-          </p>
+          <button onClick={() => buyCredits("small")}>
+            $5 - 100 credits
+          </button>
+
+          <button onClick={() => buyCredits("medium")}>
+            $10 - 200 credits
+          </button>
+
+          <button onClick={() => buyCredits("large")}>
+            $15 - 300 credits
+          </button>
         </div>
       )}
 
-      <div
-        style={{
-          border: "1px solid #ddd",
-          padding: "20px",
-          borderRadius: "8px",
-          marginTop: "30px",
-        }}
-      >
-        <h3>Billing Settings</h3>
-
-        <button onClick={openPortal} style={{ marginTop: "10px" }}>
-          Manage Payment / Cancel Subscription
+      <div style={{ marginTop: 30 }}>
+        <button onClick={openPortal}>
+          Manage Payment / Cancel
         </button>
       </div>
     </div>

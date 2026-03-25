@@ -109,3 +109,101 @@ img {
   background: rgba(0, 255, 156, 0.2);
   border-radius: 10px;
 }
+
+/* ---------------- FORM CONTROLS POLISH ---------------- */
+
+select,
+input[type="file"] {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 255, 156, 0.15);
+  background: rgba(0, 0, 0, 0.65);
+  color: #e5e7eb;
+}
+
+select {
+  min-width: 140px;
+}
+
+input[type="file"] {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+input[type="file"]::file-selector-button {
+  margin-right: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 255, 156, 0.2);
+  background: rgba(0, 0, 0, 0.8);
+  color: #e5e7eb;
+  cursor: pointer;
+}
+
+input[type="file"]::file-selector-button:hover,
+select:hover {
+  border-color: #00ff9c;
+}
+
+/* ---------------- BUTTON HOVER EFFECT ---------------- */
+
+button {
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  border-color: #00ff9c !important;
+  box-shadow: 0 0 12px rgba(0,255,156,0.4);
+  transform: translateY(-1px);
+}
+
+
+/* ---------------- IMAGE HOVER ---------------- */
+
+img {
+  transition: all 0.2s ease;
+}
+
+img:hover {
+  transform: scale(1.04);
+}
+
+
+/* ---------------- IMAGE FADE IN ---------------- */
+
+.fade-in-image {
+  opacity: 0;
+  animation: fadeIn 0.5s ease forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+
+/* ---------------- LOADING GLOW ---------------- */
+
+.loading-box {
+  animation: pulseGlow 1.5s infinite ease-in-out;
+}
+
+@keyframes pulseGlow {
+  0% {
+    box-shadow: 0 0 10px rgba(0,255,156,0.1);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(0,255,156,0.3);
+  }
+  100% {
+    box-shadow: 0 0 10px rgba(0,255,156,0.1);
+  }
+}
+
