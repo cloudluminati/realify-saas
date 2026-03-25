@@ -123,7 +123,7 @@ export default function Page() {
       {/* GRID */}
       <div style={{
         display: 'grid', maxWidth: '100%', overflow: 'hidden',
-        gridTemplateColumns: '0.9fr 2.1fr', minWidth: 0,
+        gridTemplateColumns: '420px 1fr', minWidth: 0,
         gap: 30
       }}>
 
@@ -137,7 +137,7 @@ export default function Page() {
 
           <textarea
             style={{
-              width: '100%',
+              width: '100%', boxSizing: 'border-box',
               height: 140,
               padding: 12,
               borderRadius: 10,
