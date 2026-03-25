@@ -67,7 +67,17 @@ export default function Page() {
     try {
       const formData = new FormData();
       formData.append('prompt', prompt);
-      formData.append('aspect_ratio', aspectRatio); // ✅ RESTORED
+      formData.append('aspectRatio', aspectRatio);
+
+      if (model === 'gpt') {
+        formData.append('quality', quality);
+      }
+
+      if (images.length > 0) {
+        images.forEach((image) => {
+          formData.append('images', image);
+        });
+      }
 
       const endpoint = model === 'nano' ? '/api/realify' : '/api/gpt';
 
@@ -129,7 +139,7 @@ export default function Page() {
 
         {/* LEFT PANEL */}
         <div style={{
-          background: '#0b0b0b', // ✅ SOLID so it's visible
+          background: '#0b0b0b',
           padding: 24,
           borderRadius: 16, minWidth: 0,
           border: '1px solid rgba(255,255,255,0.1)'
@@ -190,15 +200,26 @@ export default function Page() {
                 <option value="gpt">GPT</option>
               </select>
 
-              {/* ✅ RESTORED ASPECT RATIO */}
-              <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
-                <option value="1:1">1:1</option>
-                <option value="16:9">16:9</option>
-                <option value="9:16">9:16</option>
-                <option value="4:5">4:5</option>
-                <option value="3:2">3:2</option>
-                <option value="2:3">2:3</option>
-              </select>
+              {model === "nano" ? (
+                <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
+                  <option value="1:1">1:1</option>
+                  <option value="16:9">16:9</option>
+                  <option value="9:16">9:16</option>
+                  <option value="4:5">4:5</option>
+                  <option value="4:3">4:3</option>
+                  <option value="3:2">3:2</option>
+                  <option value="2:3">2:3</option>
+                  <option value="21:9">21:9</option>
+                  <option value="9:21">9:21</option>
+                  <option value="match_input_image">match_input_image</option>
+                </select>
+              ) : (
+                <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
+                  <option value="1:1">1:1</option>
+                  <option value="3:2">3:2</option>
+                  <option value="2:3">2:3</option>
+                </select>
+              )}
 
               {model === "gpt" && (
                 <select value={quality} onChange={(e) => setQuality(e.target.value as QualityChoice)}>
@@ -218,7 +239,7 @@ export default function Page() {
 
         {/* RIGHT PANEL */}
         <div style={{
-          background: '#0b0b0b', // ✅ FIXED VISIBILITY
+          background: '#0b0b0b',
           border: '1px solid rgba(255,255,255,0.1)',
           borderRadius: 16, minWidth: 0,
           padding: 20,
