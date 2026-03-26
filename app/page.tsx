@@ -24,6 +24,7 @@ export default function Page() {
 
   const [loading, setLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [error, setError] = useState<string | null>(null); // ✅ added
 
   useEffect(() => {
     async function loadRecent() {
@@ -63,6 +64,7 @@ export default function Page() {
 
     setLoading(true);
     setResult(null);
+    setError(null); // ✅ reset error
 
     try {
       const formData = new FormData();
@@ -88,6 +90,24 @@ export default function Page() {
       });
 
       const data = await res.json();
+
+      // ✅ HANDLE ERRORS
+      if (!res.ok) {
+        if (data.error === "no_subscription") {
+          setError("No active plan. Go to Billing.");
+        } else if (data.error === "limit_reached") {
+          setError("You're out of credits.");
+        } else if (data.error === "Too many requests") {
+          setError("Wait a couple seconds before trying again.");
+        } else if (data.error === "Generation already in progress") {
+          setError("Image already generating...");
+        } else {
+          setError("Something went wrong. Try again.");
+        }
+
+        setLoading(false);
+        return;
+      }
 
       const img =
         data.image ||
@@ -248,7 +268,11 @@ export default function Page() {
           alignItems: 'center',
           justifyContent: 'center'
         }}>
-          {!result ? (
+          {error ? ( // ✅ error UI
+            <div style={{ color: 'red', fontWeight: 500 }}>
+              {error}
+            </div>
+          ) : !result ? (
             <div style={{ opacity: 0.4, color: 'white' }}>
               {loading ? "Generating..." : "Your image will appear here"}
             </div>
