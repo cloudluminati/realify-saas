@@ -75,19 +75,6 @@ export async function POST(req: Request) {
 
     const user_id = user.id;
 
-    /* -------------------------------------------------------------------------- */
-    /* PREVENT MULTIPLE TABS / PARALLEL GENERATIONS                               */
-    /* -------------------------------------------------------------------------- */
-
-    if (activeGenerations.has(user_id)) {
-      return NextResponse.json(
-        { error: "Generation already in progress" },
-        { status: 429 }
-      );
-    }
-
-    activeGenerations.add(user_id);
-
     try {
 
       /* -------------------------------------------------------------------------- */
@@ -149,6 +136,21 @@ export async function POST(req: Request) {
           { status: 403 }
         );
       }
+
+      /* -------------------------------------------------------------------------- */
+      /* PREVENT MULTIPLE TABS / PARALLEL GENERATIONS (FIXED POSITION)              */
+      /* -------------------------------------------------------------------------- */
+
+      if (activeGenerations.has(user_id)) {
+        return NextResponse.json(
+          { error: "Generation already in progress" },
+          { status: 429 }
+        );
+      }
+
+      activeGenerations.add(user_id);
+
+      /* -------------------------------------------------------------------------- */
 
       const formData = await req.formData();
       const prompt = formData.get("prompt");
