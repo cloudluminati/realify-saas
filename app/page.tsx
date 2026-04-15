@@ -10,7 +10,6 @@ type ModelChoice = 'nano' | 'gpt';
 type QualityChoice = 'auto' | 'low' | 'medium' | 'high';
 
 export default function Page() {
-
   const [user, setUser] = useState<any>(null);
 
   const [model, setModel] = useState<ModelChoice>('nano');
@@ -20,23 +19,23 @@ export default function Page() {
 
   const [images, setImages] = useState<File[]>([]);
   const [result, setResult] = useState<string | null>(null);
-  const [recentImages, setRecentImages] = useState<{image:string,prompt:string}[]>([]);
+  const [recentImages, setRecentImages] = useState<{ image: string; prompt: string }[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [error, setError] = useState<string | null>(null); // ✅ added
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadRecent() {
       try {
-        const res = await fetch("/api/gallery", { cache: "no-store" });
+        const res = await fetch('/api/gallery', { cache: 'no-store' });
         const data = await res.json();
 
         if (data?.images) {
           setRecentImages(
             data.images.slice(0, 4).map((img: any) => ({
               image: img.image_url,
-              prompt: img.prompt || ""
+              prompt: img.prompt || '',
             }))
           );
         }
@@ -48,7 +47,9 @@ export default function Page() {
 
   useEffect(() => {
     async function init() {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       setUser(user ?? null);
     }
     init();
@@ -59,16 +60,38 @@ export default function Page() {
     setImages(Array.from(files));
   }
 
-  async function generate() {
-    if (!prompt.trim() || loading) return;
+  function enhancePrompt() {
+    if (!prompt.trim()) return;
+
+    let improved = prompt.trim();
+
+    if (improved.length < 40) {
+      improved += ', detailed, high quality';
+    }
+
+    if (!/realistic|cinematic|illustration|anime|3d|photo|photography/i.test(improved)) {
+      improved += ', realistic, natural lighting';
+    }
+
+    if (!/close-up|wide shot|portrait|angle|composition|framing/i.test(improved)) {
+      improved += ', professional composition';
+    }
+
+    setPrompt(improved);
+  }
+
+  async function generate(overridePrompt?: string) {
+    const finalPrompt = (overridePrompt ?? prompt).trim();
+
+    if (!finalPrompt || loading) return;
 
     setLoading(true);
     setResult(null);
-    setError(null); // ✅ reset error
+    setError(null);
 
     try {
       const formData = new FormData();
-      formData.append('prompt', prompt);
+      formData.append('prompt', finalPrompt);
       formData.append('aspectRatio', aspectRatio);
 
       if (model === 'gpt') {
@@ -91,18 +114,19 @@ export default function Page() {
 
       const data = await res.json();
 
-      // ✅ HANDLE ERRORS
       if (!res.ok) {
-        if (data.error === "no_subscription") {
-          setError("No active plan. Go to Billing.");
-        } else if (data.error === "limit_reached") {
+        if (data.error === 'no_subscription') {
+          setError('No active plan. Go to Billing.');
+        } else if (data.error === 'limit_reached') {
           setError("You're out of credits.");
-        } else if (data.error === "Too many requests") {
-          setError("Wait a couple seconds before trying again.");
-        } else if (data.error === "Generation already in progress") {
-          setError("Image already generating...");
+        } else if (data.error === 'replicate_no_credit') {
+          setError('Server is out of generation credits. Try again later.');
+        } else if (data.error === 'Too many requests') {
+          setError('Wait a couple seconds before trying again.');
+        } else if (data.error === 'Generation already in progress') {
+          setError('Image already generating...');
         } else {
-          setError("Something went wrong. Try again.");
+          setError('Something went wrong. Try again.');
         }
 
         setLoading(false);
@@ -115,11 +139,30 @@ export default function Page() {
         (Array.isArray(data.output) ? data.output[0] : data.output);
 
       setResult(img);
-      setRecentImages(prev => [{ image: img, prompt }, ...prev].slice(0, 4));
-
+      setRecentImages((prev) => [{ image: img, prompt: finalPrompt }, ...prev].slice(0, 4));
     } finally {
       setLoading(false);
     }
+  }
+
+  async function generateVariation() {
+    if (!prompt.trim() || loading) return;
+
+    const variations = [
+      'different angle',
+      'alternate pose',
+      'cinematic variation',
+      'new composition',
+      'slight variation',
+      'different lighting',
+      'dynamic framing',
+    ];
+
+    const random = variations[Math.floor(Math.random() * variations.length)];
+    const variedPrompt = `${prompt.trim()}, ${random}`;
+
+    setPrompt(variedPrompt);
+    await generate(variedPrompt);
   }
 
   if (!user) {
@@ -135,65 +178,92 @@ export default function Page() {
 
   return (
     <main style={{ padding: 40, maxWidth: 1400, margin: '0 auto' }}>
-
       {/* NAV */}
-      <div style={{
-        position: 'fixed',
-        top: 20,
-        right: 20,
-        display: 'flex',
-        gap: 10
-      }}>
+      <div
+        style={{
+          position: 'fixed',
+          top: 20,
+          right: 20,
+          display: 'flex',
+          gap: 10,
+        }}
+      >
         <button onClick={() => supabase.auth.signOut()}>Logout</button>
-        <button onClick={() => window.location.href = '/billing'}>Billing</button>
-        <button onClick={() => window.location.href = '/explore'}>Explore</button>
-        <button onClick={() => window.location.href = '/history'}>History</button>
+        <button onClick={() => (window.location.href = '/billing')}>Billing</button>
+        <button onClick={() => (window.location.href = '/explore')}>Explore</button>
+        <button onClick={() => (window.location.href = '/history')}>History</button>
       </div>
 
       {/* GRID */}
-      <div style={{
-        display: 'grid', maxWidth: '100%', overflow: 'hidden',
-        gridTemplateColumns: '420px 1fr', minWidth: 0,
-        gap: 30
-      }}>
-
+      <div
+        style={{
+          display: 'grid',
+          maxWidth: '100%',
+          overflow: 'hidden',
+          gridTemplateColumns: '420px 1fr',
+          minWidth: 0,
+          gap: 30,
+        }}
+      >
         {/* LEFT PANEL */}
-        <div style={{
-          background: '#0b0b0b',
-          padding: 24,
-          borderRadius: 16, minWidth: 0,
-          border: '1px solid rgba(255,255,255,0.1)'
-        }}>
-
+        <div
+          style={{
+            background: '#0b0b0b',
+            padding: 24,
+            borderRadius: 16,
+            minWidth: 0,
+            border: '1px solid rgba(255,255,255,0.1)',
+          }}
+        >
           <textarea
             style={{
-              width: '100%', boxSizing: 'border-box',
+              width: '100%',
+              boxSizing: 'border-box',
               height: 140,
               padding: 12,
               borderRadius: 10,
               background: '#000',
               color: 'white',
-              border: '1px solid rgba(255,255,255,0.1)'
+              border: '1px solid rgba(255,255,255,0.1)',
             }}
             placeholder="Describe your image..."
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
           />
 
-          <div style={{
-            marginTop: 14,
-            display: 'flex',
-            gap: 10
-          }}>
+          <button
+            onClick={enhancePrompt}
+            style={{
+              marginTop: 10,
+              width: '100%',
+              padding: 10,
+              borderRadius: 10,
+              background: '#1f1f1f',
+              color: 'white',
+              border: '1px solid rgba(255,255,255,0.2)',
+              fontWeight: 500,
+              cursor: 'pointer',
+            }}
+          >
+            Enhance Prompt
+          </button>
+
+          <div
+            style={{
+              marginTop: 14,
+              display: 'flex',
+              gap: 10,
+            }}
+          >
             <button
-              onClick={generate}
+              onClick={() => generate()}
               style={{
                 flex: 1,
                 padding: 12,
                 borderRadius: 10,
                 background: 'white',
                 color: 'black',
-                fontWeight: 600
+                fontWeight: 600,
               }}
             >
               {loading ? 'Generating...' : 'Generate'}
@@ -205,7 +275,7 @@ export default function Page() {
                 padding: 12,
                 borderRadius: 10,
                 border: '1px solid rgba(255,255,255,0.2)',
-                color: 'white'
+                color: 'white',
               }}
             >
               Advanced
@@ -214,13 +284,12 @@ export default function Page() {
 
           {showAdvanced && (
             <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-
               <select value={model} onChange={(e) => setModel(e.target.value as ModelChoice)}>
                 <option value="nano">Nano</option>
                 <option value="gpt">GPT</option>
               </select>
 
-              {model === "nano" ? (
+              {model === 'nano' ? (
                 <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
                   <option value="1:1">1:1</option>
                   <option value="16:9">16:9</option>
@@ -241,8 +310,11 @@ export default function Page() {
                 </select>
               )}
 
-              {model === "gpt" && (
-                <select value={quality} onChange={(e) => setQuality(e.target.value as QualityChoice)}>
+              {model === 'gpt' && (
+                <select
+                  value={quality}
+                  onChange={(e) => setQuality(e.target.value as QualityChoice)}
+                >
                   <option value="auto">Auto</option>
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
@@ -251,66 +323,81 @@ export default function Page() {
               )}
 
               <input type="file" multiple onChange={(e) => handleImageUpload(e.target.files)} />
-
             </div>
           )}
-
         </div>
 
         {/* RIGHT PANEL */}
-        <div style={{
-          background: '#0b0b0b',
-          border: '1px solid rgba(255,255,255,0.1)',
-          borderRadius: 16, minWidth: 0,
-          padding: 20,
-          minHeight: 500,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          {error ? ( // ✅ error UI
-            <div style={{ color: 'red', fontWeight: 500 }}>
-              {error}
-            </div>
+        <div
+          style={{
+            background: '#0b0b0b',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: 16,
+            minWidth: 0,
+            padding: 20,
+            minHeight: 500,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {error ? (
+            <div style={{ color: 'red', fontWeight: 500 }}>{error}</div>
           ) : !result ? (
             <div style={{ opacity: 0.4, color: 'white' }}>
-              {loading ? "Generating..." : "Your image will appear here"}
+              {loading ? 'Generating...' : 'Your image will appear here'}
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-              
+            <div
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}
+            >
               <img
                 src={result}
                 style={{
                   maxWidth: '100%',
                   maxHeight: '70vh',
-                  borderRadius: 12
+                  borderRadius: 12,
                 }}
               />
 
-              <button
-                onClick={() => {
-                  const link = document.createElement('a');
-                  link.href = result;
-                  link.download = `realify-${Date.now()}.png`;
-                  link.click();
-                }}
-                style={{
-                  padding: '10px 16px',
-                  borderRadius: 10,
-                  background: 'white',
-                  color: 'black',
-                  fontWeight: 600,
-                  cursor: 'pointer'
-                }}
-              >
-                Download
-              </button>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  onClick={generateVariation}
+                  style={{
+                    padding: '10px 16px',
+                    borderRadius: 10,
+                    background: '#1f1f1f',
+                    color: 'white',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                  }}
+                >
+                  Variation
+                </button>
 
+                <button
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = result;
+                    link.download = `realify-${Date.now()}.png`;
+                    link.click();
+                  }}
+                  style={{
+                    padding: '10px 16px',
+                    borderRadius: 10,
+                    background: 'white',
+                    color: 'black',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Download
+                </button>
+              </div>
             </div>
           )}
         </div>
-
       </div>
 
       {/* RECENT */}
@@ -331,14 +418,13 @@ export default function Page() {
                   height: 110,
                   objectFit: 'cover',
                   borderRadius: 10,
-                  cursor: 'pointer'
+                  cursor: 'pointer',
                 }}
               />
             ))}
           </div>
         </div>
       )}
-
     </main>
   );
 }

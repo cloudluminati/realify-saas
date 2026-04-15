@@ -15,21 +15,14 @@ const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN!,
 });
 
-/* -------------------------------------------------------------------------- */
-/* RATE LIMITING SYSTEM                                                       */
-/* -------------------------------------------------------------------------- */
-
 const lastRequestMap = new Map<string, number>();
-const REQUEST_COOLDOWN = 2000; // 2 seconds
+const REQUEST_COOLDOWN = 2000;
 
 const generationWindow = new Map<string, number[]>();
 const MAX_GENERATIONS = 15;
-const WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+const WINDOW_MS = 5 * 60 * 1000;
 
-// Prevent parallel generations from multiple tabs
 const activeGenerations = new Set<string>();
-
-/* -------------------------------------------------------------------------- */
 
 const ALLOWED_RATIOS = new Set([
   "match_input_image",
@@ -59,7 +52,6 @@ async function streamToBuffer(stream: ReadableStream): Promise<Buffer> {
 
 export async function POST(req: Request) {
   try {
-
     const supabaseServer = await getSupabaseServer();
 
     const {
@@ -67,41 +59,23 @@ export async function POST(req: Request) {
     } = await supabaseServer.auth.getUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: "not_authenticated" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "not_authenticated" }, { status: 401 });
     }
 
     const user_id = user.id;
 
     try {
-
-      /* -------------------------------------------------------------------------- */
-      /* 2 SECOND COOLDOWN                                                          */
-      /* -------------------------------------------------------------------------- */
-
       const now = Date.now();
       const lastRequest = lastRequestMap.get(user_id);
 
       if (lastRequest && now - lastRequest < REQUEST_COOLDOWN) {
-        return NextResponse.json(
-          { error: "Too many requests" },
-          { status: 429 }
-        );
+        return NextResponse.json({ error: "Too many requests" }, { status: 429 });
       }
 
       lastRequestMap.set(user_id, now);
 
-      /* -------------------------------------------------------------------------- */
-      /* 15 GENERATIONS PER 5 MINUTES LIMIT                                         */
-      /* -------------------------------------------------------------------------- */
-
       const userHistory = generationWindow.get(user_id) || [];
-
-      const recent = userHistory.filter(
-        (timestamp) => now - timestamp < WINDOW_MS
-      );
+      const recent = userHistory.filter((t) => now - t < WINDOW_MS);
 
       if (recent.length >= MAX_GENERATIONS) {
         return NextResponse.json(
@@ -113,8 +87,6 @@ export async function POST(req: Request) {
       recent.push(now);
       generationWindow.set(user_id, recent);
 
-      /* -------------------------------------------------------------------------- */
-
       const { data: sub } = await supabaseServer
         .from("subscriptions")
         .select("status")
@@ -124,22 +96,12 @@ export async function POST(req: Request) {
         .maybeSingle();
 
       if (!sub) {
-        return NextResponse.json(
-          { error: "no_subscription" },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: "no_subscription" }, { status: 403 });
       }
 
       if (!(await canConsume(user_id, UNIT_COSTS.nano))) {
-        return NextResponse.json(
-          { error: "limit_reached" },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: "limit_reached" }, { status: 403 });
       }
-
-      /* -------------------------------------------------------------------------- */
-      /* PREVENT MULTIPLE TABS / PARALLEL GENERATIONS (FIXED POSITION)              */
-      /* -------------------------------------------------------------------------- */
 
       if (activeGenerations.has(user_id)) {
         return NextResponse.json(
@@ -150,17 +112,12 @@ export async function POST(req: Request) {
 
       activeGenerations.add(user_id);
 
-      /* -------------------------------------------------------------------------- */
-
       const formData = await req.formData();
       const prompt = formData.get("prompt");
       const aspectRatioRaw = formData.get("aspectRatio");
 
       if (!prompt || typeof prompt !== "string") {
-        return NextResponse.json(
-          { error: "Missing prompt" },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: "Missing prompt" }, { status: 400 });
       }
 
       const aspect_ratio =
@@ -175,19 +132,15 @@ export async function POST(req: Request) {
         aspect_ratio,
       };
 
-      const imageFiles = formData
-        .getAll("images")
-        .filter((f): f is File => f instanceof File)
-        .slice(0, 14);
+      const output = await replicate.run("google/nano-banana-pro", { input });
 
-      if (imageFiles.length > 0) {
-        input.image_input = imageFiles;
+      if (typeof output === "string" && output.startsWith("http")) {
+        await consume(user_id, UNIT_COSTS.nano);
+
+        return NextResponse.json({
+          image: output,
+        });
       }
-
-      const output = await replicate.run(
-        "google/nano-banana-pro",
-        { input }
-      );
 
       let buffer: Buffer | null = null;
 
@@ -230,12 +183,11 @@ export async function POST(req: Request) {
 
       const fileName = `nano-${Date.now()}.png`;
 
-      const { error: uploadError } =
-        await supabaseServer.storage
-          .from("generations")
-          .upload(fileName, buffer, {
-            contentType: "image/png",
-          });
+      const { error: uploadError } = await supabaseServer.storage
+        .from("generations")
+        .upload(fileName, buffer, {
+          contentType: "image/png",
+        });
 
       if (uploadError) {
         return NextResponse.json(
@@ -263,20 +215,22 @@ export async function POST(req: Request) {
       });
 
     } finally {
-
-      // Always release the generation lock
       activeGenerations.delete(user_id);
-
     }
 
   } catch (err: any) {
-
     console.error("Nano generation error:", err);
+
+    if (err?.message?.includes("Insufficient credit") || err?.status === 402) {
+      return NextResponse.json(
+        { error: "replicate_no_credit" },
+        { status: 402 }
+      );
+    }
 
     return NextResponse.json(
       { error: "generation_failed" },
       { status: 500 }
     );
-
   }
 }
