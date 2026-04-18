@@ -215,6 +215,14 @@ export default function Page() {
   const modelLabel = model === 'nano' ? 'Nano' : 'GPT Image';
   const modelModeLabel = model === 'nano' ? 'Best for speed' : 'Best for quality';
 
+  const referenceCount = images.length;
+  const referenceLabel =
+    referenceCount === 0
+      ? 'No reference images'
+      : referenceCount === 1
+        ? '1 reference image attached'
+        : `${referenceCount} reference images attached`;
+
   return (
     <main style={{ padding: '40px 40px 60px', maxWidth: 1400, margin: '0 auto' }}>
       {/* NAV */}
@@ -339,6 +347,37 @@ export default function Page() {
               <div style={{ color: 'rgba(255,255,255,0.58)', fontSize: 12, marginTop: 4 }}>
                 Quality: {quality}
               </div>
+            )}
+          </div>
+
+          <div
+            style={{
+              padding: '14px 16px',
+              borderRadius: 16,
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)',
+            }}
+          >
+            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 4 }}>
+              Reference images
+            </div>
+            <div style={{ color: 'white', fontWeight: 700 }}>{referenceLabel}</div>
+            {referenceCount > 0 && (
+              <button
+                onClick={() => setImages([])}
+                style={{
+                  marginTop: 10,
+                  padding: '8px 12px',
+                  borderRadius: 12,
+                  background: '#1a1a1a',
+                  color: 'white',
+                  border: '1px solid rgba(255,255,255,0.14)',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Clear
+              </button>
             )}
           </div>
         </div>
