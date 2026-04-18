@@ -203,6 +203,9 @@ export default function Page() {
     error === "You're out of credits." ||
     error === 'Server is out of generation credits. Try again later.';
 
+  const modelLabel = model === 'nano' ? 'Nano' : 'GPT Image';
+  const modelModeLabel = model === 'nano' ? 'Best for speed' : 'Best for quality';
+
   return (
     <main style={{ padding: '40px 40px 60px', maxWidth: 1400, margin: '0 auto' }}>
       {/* NAV */}
@@ -289,7 +292,7 @@ export default function Page() {
 
         <div
           style={{
-            minWidth: 250,
+            minWidth: 280,
             display: 'grid',
             gap: 10,
           }}
@@ -303,9 +306,12 @@ export default function Page() {
             }}
           >
             <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 4 }}>
-              Best for speed
+              Current model
             </div>
-            <div style={{ color: 'white', fontWeight: 700 }}>Nano</div>
+            <div style={{ color: 'white', fontWeight: 700 }}>{modelLabel}</div>
+            <div style={{ color: 'rgba(255,255,255,0.58)', fontSize: 12, marginTop: 4 }}>
+              {modelModeLabel}
+            </div>
           </div>
 
           <div
@@ -317,9 +323,14 @@ export default function Page() {
             }}
           >
             <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 4 }}>
-              Best for quality
+              Current aspect ratio
             </div>
-            <div style={{ color: 'white', fontWeight: 700 }}>GPT Image</div>
+            <div style={{ color: 'white', fontWeight: 700 }}>{aspectRatio}</div>
+            {model === 'gpt' && (
+              <div style={{ color: 'rgba(255,255,255,0.58)', fontSize: 12, marginTop: 4 }}>
+                Quality: {quality}
+              </div>
+            )}
           </div>
         </div>
       </div>
