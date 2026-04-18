@@ -176,22 +176,152 @@ export default function Page() {
     );
   }
 
+  const navButtonStyle: React.CSSProperties = {
+    padding: '12px 22px',
+    borderRadius: 16,
+    background: 'rgba(8, 8, 8, 0.92)',
+    color: 'white',
+    border: '1px solid rgba(255,255,255,0.12)',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    fontWeight: 600,
+    cursor: 'pointer',
+    boxShadow: '0 12px 30px rgba(0,0,0,0.25)',
+  };
+
+  const cardStyle: React.CSSProperties = {
+    background: 'rgba(10, 10, 10, 0.92)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: 20,
+    boxShadow: '0 20px 50px rgba(0,0,0,0.28)',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+  };
+
+  const showBillingCta =
+    error === 'No active plan. Go to Billing.' ||
+    error === "You're out of credits." ||
+    error === 'Server is out of generation credits. Try again later.';
+
   return (
-    <main style={{ padding: 40, maxWidth: 1400, margin: '0 auto' }}>
+    <main style={{ padding: '40px 40px 60px', maxWidth: 1400, margin: '0 auto' }}>
       {/* NAV */}
       <div
         style={{
           position: 'fixed',
-          top: 20,
-          right: 20,
+          top: 22,
+          right: 22,
           display: 'flex',
-          gap: 10,
+          gap: 12,
+          zIndex: 20,
         }}
       >
-        <button onClick={() => supabase.auth.signOut()}>Logout</button>
-        <button onClick={() => (window.location.href = '/billing')}>Billing</button>
-        <button onClick={() => (window.location.href = '/explore')}>Explore</button>
-        <button onClick={() => (window.location.href = '/history')}>History</button>
+        <button onClick={() => supabase.auth.signOut()} style={navButtonStyle}>
+          Logout
+        </button>
+        <button onClick={() => (window.location.href = '/billing')} style={navButtonStyle}>
+          Billing
+        </button>
+        <button onClick={() => (window.location.href = '/explore')} style={navButtonStyle}>
+          Explore
+        </button>
+        <button onClick={() => (window.location.href = '/history')} style={navButtonStyle}>
+          History
+        </button>
+      </div>
+
+      {/* HEADER */}
+      <div
+        style={{
+          ...cardStyle,
+          padding: '30px 32px',
+          marginBottom: 28,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: 24,
+        }}
+      >
+        <div style={{ maxWidth: 760 }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 12px',
+              borderRadius: 999,
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              color: 'rgba(255,255,255,0.8)',
+              fontSize: 13,
+              marginBottom: 16,
+            }}
+          >
+            Realify Image Studio
+          </div>
+
+          <h1
+            style={{
+              margin: 0,
+              fontSize: 64,
+              lineHeight: 1,
+              color: 'white',
+              letterSpacing: '-0.04em',
+              fontWeight: 800,
+            }}
+          >
+            Realify
+          </h1>
+
+          <p
+            style={{
+              margin: '14px 0 0',
+              color: 'rgba(255,255,255,0.72)',
+              fontSize: 18,
+              lineHeight: 1.5,
+              maxWidth: 640,
+            }}
+          >
+            Generate premium AI images, iterate fast with variations, and keep your best
+            creations ready to download.
+          </p>
+        </div>
+
+        <div
+          style={{
+            minWidth: 250,
+            display: 'grid',
+            gap: 10,
+          }}
+        >
+          <div
+            style={{
+              padding: '14px 16px',
+              borderRadius: 16,
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)',
+            }}
+          >
+            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 4 }}>
+              Best for speed
+            </div>
+            <div style={{ color: 'white', fontWeight: 700 }}>Nano</div>
+          </div>
+
+          <div
+            style={{
+              padding: '14px 16px',
+              borderRadius: 16,
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)',
+            }}
+          >
+            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 4 }}>
+              Best for quality
+            </div>
+            <div style={{ color: 'white', fontWeight: 700 }}>GPT Image</div>
+          </div>
+        </div>
       </div>
 
       {/* GRID */}
@@ -208,11 +338,9 @@ export default function Page() {
         {/* LEFT PANEL */}
         <div
           style={{
-            background: '#0b0b0b',
+            ...cardStyle,
             padding: 24,
-            borderRadius: 16,
             minWidth: 0,
-            border: '1px solid rgba(255,255,255,0.1)',
           }}
         >
           <textarea
@@ -220,11 +348,14 @@ export default function Page() {
               width: '100%',
               boxSizing: 'border-box',
               height: 140,
-              padding: 12,
-              borderRadius: 10,
+              padding: 16,
+              borderRadius: 14,
               background: '#000',
               color: 'white',
               border: '1px solid rgba(255,255,255,0.1)',
+              fontSize: 16,
+              outline: 'none',
+              resize: 'vertical',
             }}
             placeholder="Describe your image..."
             value={prompt}
@@ -234,14 +365,14 @@ export default function Page() {
           <button
             onClick={enhancePrompt}
             style={{
-              marginTop: 10,
+              marginTop: 12,
               width: '100%',
-              padding: 10,
-              borderRadius: 10,
-              background: '#1f1f1f',
+              padding: 12,
+              borderRadius: 14,
+              background: '#1a1a1a',
               color: 'white',
-              border: '1px solid rgba(255,255,255,0.2)',
-              fontWeight: 500,
+              border: '1px solid rgba(255,255,255,0.14)',
+              fontWeight: 600,
               cursor: 'pointer',
             }}
           >
@@ -259,11 +390,13 @@ export default function Page() {
               onClick={() => generate()}
               style={{
                 flex: 1,
-                padding: 12,
-                borderRadius: 10,
+                padding: 14,
+                borderRadius: 14,
                 background: 'white',
                 color: 'black',
-                fontWeight: 600,
+                fontWeight: 700,
+                cursor: 'pointer',
+                border: 'none',
               }}
             >
               {loading ? 'Generating...' : 'Generate'}
@@ -272,10 +405,13 @@ export default function Page() {
             <button
               onClick={() => setShowAdvanced(!showAdvanced)}
               style={{
-                padding: 12,
-                borderRadius: 10,
-                border: '1px solid rgba(255,255,255,0.2)',
+                padding: '14px 18px',
+                borderRadius: 14,
+                border: '1px solid rgba(255,255,255,0.16)',
+                background: '#111',
                 color: 'white',
+                cursor: 'pointer',
+                fontWeight: 600,
               }}
             >
               Advanced
@@ -284,13 +420,33 @@ export default function Page() {
 
           {showAdvanced && (
             <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <select value={model} onChange={(e) => setModel(e.target.value as ModelChoice)}>
+              <select
+                value={model}
+                onChange={(e) => setModel(e.target.value as ModelChoice)}
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  background: '#111',
+                  color: 'white',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                }}
+              >
                 <option value="nano">Nano</option>
                 <option value="gpt">GPT</option>
               </select>
 
               {model === 'nano' ? (
-                <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
+                <select
+                  value={aspectRatio}
+                  onChange={(e) => setAspectRatio(e.target.value)}
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    background: '#111',
+                    color: 'white',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                  }}
+                >
                   <option value="1:1">1:1</option>
                   <option value="16:9">16:9</option>
                   <option value="9:16">9:16</option>
@@ -303,7 +459,17 @@ export default function Page() {
                   <option value="match_input_image">match_input_image</option>
                 </select>
               ) : (
-                <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
+                <select
+                  value={aspectRatio}
+                  onChange={(e) => setAspectRatio(e.target.value)}
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    background: '#111',
+                    color: 'white',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                  }}
+                >
                   <option value="1:1">1:1</option>
                   <option value="3:2">3:2</option>
                   <option value="2:3">2:3</option>
@@ -314,6 +480,13 @@ export default function Page() {
                 <select
                   value={quality}
                   onChange={(e) => setQuality(e.target.value as QualityChoice)}
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    background: '#111',
+                    color: 'white',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                  }}
                 >
                   <option value="auto">Auto</option>
                   <option value="low">Low</option>
@@ -322,7 +495,18 @@ export default function Page() {
                 </select>
               )}
 
-              <input type="file" multiple onChange={(e) => handleImageUpload(e.target.files)} />
+              <input
+                type="file"
+                multiple
+                onChange={(e) => handleImageUpload(e.target.files)}
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  background: '#111',
+                  color: 'white',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                }}
+              />
             </div>
           )}
         </div>
@@ -330,33 +514,82 @@ export default function Page() {
         {/* RIGHT PANEL */}
         <div
           style={{
-            background: '#0b0b0b',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 16,
+            ...cardStyle,
             minWidth: 0,
-            padding: 20,
-            minHeight: 500,
+            padding: 24,
+            minHeight: 540,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
           {error ? (
-            <div style={{ color: 'red', fontWeight: 500 }}>{error}</div>
+            <div
+              style={{
+                width: '100%',
+                maxWidth: 520,
+                borderRadius: 18,
+                border: '1px solid rgba(255,120,120,0.22)',
+                background: 'rgba(70, 12, 12, 0.35)',
+                padding: 24,
+                boxShadow: '0 20px 50px rgba(0,0,0,0.25)',
+              }}
+            >
+              <div
+                style={{
+                  color: '#ff8f8f',
+                  fontWeight: 800,
+                  fontSize: 20,
+                  marginBottom: 10,
+                }}
+              >
+                Generation unavailable
+              </div>
+
+              <div
+                style={{
+                  color: 'rgba(255,255,255,0.84)',
+                  fontSize: 16,
+                  lineHeight: 1.5,
+                }}
+              >
+                {error}
+              </div>
+
+              {showBillingCta && (
+                <div style={{ marginTop: 18 }}>
+                  <button
+                    onClick={() => (window.location.href = '/billing')}
+                    style={{
+                      padding: '12px 18px',
+                      borderRadius: 14,
+                      background: 'white',
+                      color: 'black',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      border: 'none',
+                    }}
+                  >
+                    Go to Billing
+                  </button>
+                </div>
+              )}
+            </div>
           ) : !result ? (
-            <div style={{ opacity: 0.4, color: 'white' }}>
+            <div style={{ opacity: 0.45, color: 'white', fontSize: 18 }}>
               {loading ? 'Generating...' : 'Your image will appear here'}
             </div>
           ) : (
             <div
-              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}
             >
               <img
                 src={result}
                 style={{
                   maxWidth: '100%',
-                  maxHeight: '70vh',
-                  borderRadius: 12,
+                  maxHeight: '72vh',
+                  borderRadius: 16,
+                  boxShadow: '0 24px 60px rgba(0,0,0,0.35)',
                 }}
               />
 
@@ -364,13 +597,13 @@ export default function Page() {
                 <button
                   onClick={generateVariation}
                   style={{
-                    padding: '10px 16px',
-                    borderRadius: 10,
+                    padding: '12px 18px',
+                    borderRadius: 14,
                     background: '#1f1f1f',
                     color: 'white',
-                    fontWeight: 600,
+                    fontWeight: 700,
                     cursor: 'pointer',
-                    border: '1px solid rgba(255,255,255,0.2)',
+                    border: '1px solid rgba(255,255,255,0.16)',
                   }}
                 >
                   Variation
@@ -384,12 +617,13 @@ export default function Page() {
                     link.click();
                   }}
                   style={{
-                    padding: '10px 16px',
-                    borderRadius: 10,
+                    padding: '12px 18px',
+                    borderRadius: 14,
                     background: 'white',
                     color: 'black',
-                    fontWeight: 600,
+                    fontWeight: 700,
                     cursor: 'pointer',
+                    border: 'none',
                   }}
                 >
                   Download
@@ -402,26 +636,34 @@ export default function Page() {
 
       {/* RECENT */}
       {recentImages.length > 0 && (
-        <div style={{ marginTop: 40 }}>
-          <h3 style={{ marginBottom: 10 }}>Recent</h3>
-          <div style={{ display: 'flex', gap: 12 }}>
-            {recentImages.map((img, i) => (
-              <img
-                key={i}
-                src={img.image}
-                onClick={() => {
-                  setPrompt(img.prompt);
-                  setResult(img.image);
-                }}
-                style={{
-                  width: 110,
-                  height: 110,
-                  objectFit: 'cover',
-                  borderRadius: 10,
-                  cursor: 'pointer',
-                }}
-              />
-            ))}
+        <div style={{ marginTop: 32 }}>
+          <div
+            style={{
+              ...cardStyle,
+              padding: 20,
+            }}
+          >
+            <h3 style={{ margin: '0 0 14px', color: 'white', fontSize: 22 }}>Recent</h3>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              {recentImages.map((img, i) => (
+                <img
+                  key={i}
+                  src={img.image}
+                  onClick={() => {
+                    setPrompt(img.prompt);
+                    setResult(img.image);
+                  }}
+                  style={{
+                    width: 110,
+                    height: 110,
+                    objectFit: 'cover',
+                    borderRadius: 12,
+                    cursor: 'pointer',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                  }}
+                />
+              ))}
+            </div>
           </div>
         </div>
       )}
