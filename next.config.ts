@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  proxyClientMaxBodySize: 50 * 1024 * 1024,
 };
 
 export default nextConfig;

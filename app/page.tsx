@@ -57,7 +57,17 @@ export default function Page() {
 
   function handleImageUpload(files: FileList | null) {
     if (!files) return;
-    setImages(Array.from(files));
+
+    const newFiles = Array.from(files);
+
+    setImages((prev) => {
+      const combined = [...prev, ...newFiles];
+
+      return combined.filter((file, index, arr) => {
+        const key = `${file.name}-${file.size}-${file.lastModified}`;
+        return index === arr.findIndex((f) => `${f.name}-${f.size}-${f.lastModified}` === key);
+      });
+    });
   }
 
   function enhancePrompt() {
