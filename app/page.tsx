@@ -165,6 +165,10 @@ export default function Page() {
     await generate(variedPrompt);
   }
 
+  function handleRetry() {
+    setError(null);
+  }
+
   if (!user) {
     return (
       <main style={{ padding: 40 }}>
@@ -202,6 +206,11 @@ export default function Page() {
     error === 'No active plan. Go to Billing.' ||
     error === "You're out of credits." ||
     error === 'Server is out of generation credits. Try again later.';
+
+  const showRetryCta =
+    error === 'Wait a couple seconds before trying again.' ||
+    error === 'Image already generating...' ||
+    error === 'Something went wrong. Try again.';
 
   const modelLabel = model === 'nano' ? 'Nano' : 'GPT Image';
   const modelModeLabel = model === 'nano' ? 'Best for speed' : 'Best for quality';
@@ -567,22 +576,41 @@ export default function Page() {
                 {error}
               </div>
 
-              {showBillingCta && (
-                <div style={{ marginTop: 18 }}>
-                  <button
-                    onClick={() => (window.location.href = '/billing')}
-                    style={{
-                      padding: '12px 18px',
-                      borderRadius: 14,
-                      background: 'white',
-                      color: 'black',
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                      border: 'none',
-                    }}
-                  >
-                    Go to Billing
-                  </button>
+              {(showBillingCta || showRetryCta) && (
+                <div style={{ marginTop: 18, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  {showBillingCta && (
+                    <button
+                      onClick={() => (window.location.href = '/billing')}
+                      style={{
+                        padding: '12px 18px',
+                        borderRadius: 14,
+                        background: 'white',
+                        color: 'black',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        border: 'none',
+                      }}
+                    >
+                      Go to Billing
+                    </button>
+                  )}
+
+                  {showRetryCta && (
+                    <button
+                      onClick={handleRetry}
+                      style={{
+                        padding: '12px 18px',
+                        borderRadius: 14,
+                        background: '#1f1f1f',
+                        color: 'white',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        border: '1px solid rgba(255,255,255,0.16)',
+                      }}
+                    >
+                      Try Again
+                    </button>
+                  )}
                 </div>
               )}
             </div>
