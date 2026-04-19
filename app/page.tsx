@@ -24,13 +24,53 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
+    async function init() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      setUser(user ?? null);
+    }
+
+    init();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+
+      if (!session?.user) {
+        setRecentImages([]);
+        setResult(null);
+        setImages([]);
+        setPrompt('');
+        setError(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
     async function loadRecent() {
+      if (!user) {
+        setRecentImages([]);
+        return;
+      }
+
       try {
-        const res = await fetch('/api/gallery', { cache: 'no-store' });
+        const res = await fetch('/api/gallery', {
+          cache: 'no-store',
+          credentials: 'include',
+        });
+
         const data = await res.json();
 
         if (data?.images) {
@@ -40,22 +80,39 @@ export default function Page() {
               prompt: img.prompt || '',
             }))
           );
+        } else {
+          setRecentImages([]);
         }
-      } catch {}
+      } catch {
+        setRecentImages([]);
+      }
     }
 
     loadRecent();
-  }, []);
+  }, [user]);
 
-  useEffect(() => {
-    async function init() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUser(user ?? null);
+  async function handleLogout() {
+    if (loggingOut) return;
+
+    setLoggingOut(true);
+
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      setUser(null);
+      setRecentImages([]);
+      setResult(null);
+      setImages([]);
+      setPrompt('');
+      setError(null);
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+
+      window.location.href = '/';
     }
-    init();
-  }, []);
+  }
 
   function handleImageUpload(files: FileList | null) {
     if (!files) return;
@@ -235,6 +292,17 @@ export default function Page() {
     WebkitBackdropFilter: 'blur(10px)',
   };
 
+  const infoBannerStyle: React.CSSProperties = {
+    marginTop: 12,
+    padding: '12px 14px',
+    borderRadius: 14,
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    color: 'rgba(255,255,255,0.84)',
+    fontSize: 14,
+    lineHeight: 1.5,
+  };
+
   const showBillingCta =
     error === 'No active plan. Go to Billing.' ||
     error === "You're out of credits." ||
@@ -269,8 +337,8 @@ export default function Page() {
           zIndex: 20,
         }}
       >
-        <button onClick={() => supabase.auth.signOut()} style={navButtonStyle}>
-          Logout
+        <button onClick={handleLogout} style={navButtonStyle}>
+          {loggingOut ? 'Logging out...' : 'Logout'}
         </button>
         <button onClick={() => (window.location.href = '/billing')} style={navButtonStyle}>
           Billing
@@ -511,6 +579,13 @@ export default function Page() {
               Advanced
             </button>
           </div>
+
+          {loading && (
+            <div style={infoBannerStyle}>
+              You can leave this page while your image finishes. Completed images will appear in
+              Recent and History.
+            </div>
+          )}
 
           {showAdvanced && (
             <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -780,7 +855,7 @@ export default function Page() {
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               {recentImages.map((img, i) => (
                 <img
-                  key={i}
+                  key={`${img.image}-${i}`}
                   src={img.image}
                   onClick={() => {
                     setPrompt(img.prompt);
