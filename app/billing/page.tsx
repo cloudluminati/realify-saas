@@ -97,6 +97,12 @@ export default function BillingPage() {
     cursor: "not-allowed",
   };
 
+  const navButton: React.CSSProperties = {
+    ...darkButton,
+    padding: "12px 16px",
+    borderRadius: 16,
+  };
+
   const openCancelFlow = async (customNotice?: string) => {
     if (portalLoading) return;
 
@@ -194,6 +200,21 @@ export default function BillingPage() {
     <main style={pageWrap}>
       <div
         style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 12,
+          marginBottom: 20,
+          flexWrap: "wrap",
+        }}
+      >
+        <button onClick={() => (window.location.href = "/")} style={navButton}>
+          ⌂ Home
+        </button>
+      </div>
+
+      <div
+        style={{
           ...cardStyle,
           marginBottom: 24,
           display: "flex",
@@ -264,7 +285,14 @@ export default function BillingPage() {
 
           {sub.active ? (
             <>
-              <div style={{ color: "white", fontWeight: 800, fontSize: 22, textTransform: "capitalize" }}>
+              <div
+                style={{
+                  color: "white",
+                  fontWeight: 800,
+                  fontSize: 22,
+                  textTransform: "capitalize",
+                }}
+              >
                 {currentPlan ?? "Active"}
               </div>
               <div style={{ color: "rgba(255,255,255,0.62)", fontSize: 13, marginTop: 6 }}>
