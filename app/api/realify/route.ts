@@ -115,16 +115,29 @@ export async function POST(req: Request) {
       const formData = await req.formData();
       const prompt = formData.get("prompt");
       const aspectRatioRaw = formData.get("aspectRatio");
+      const uploadedImages = formData.getAll("images");
 
       if (!prompt || typeof prompt !== "string") {
         return NextResponse.json({ error: "Missing prompt" }, { status: 400 });
+      }
+
+      const imageFiles = uploadedImages.filter(
+        (value): value is File => value instanceof File && value.size > 0
+      );
+
+      for (const file of imageFiles) {
+        if (!file.type || !file.type.startsWith("image/")) {
+          return NextResponse.json({ error: "invalid_file_type" }, { status: 400 });
+        }
       }
 
       const aspect_ratio =
         typeof aspectRatioRaw === "string" &&
         ALLOWED_RATIOS.has(aspectRatioRaw.trim())
           ? aspectRatioRaw.trim()
-          : "match_input_image";
+          : imageFiles.length > 0
+            ? "match_input_image"
+            : "1:1";
 
       const input: Record<string, any> = {
         prompt,
@@ -132,9 +145,21 @@ export async function POST(req: Request) {
         aspect_ratio,
       };
 
+      if (imageFiles.length > 0) {
+        input.image_input = imageFiles;
+      }
+
       const output = await replicate.run("google/nano-banana-pro", { input });
 
       if (typeof output === "string" && output.startsWith("http")) {
+        await supabaseServer.from("image_generation_history").insert({
+          user_id,
+          prompt,
+          model: "nano",
+          aspect_ratio,
+          image_url: output,
+        });
+
         await consume(user_id, UNIT_COSTS.nano);
 
         return NextResponse.json({
