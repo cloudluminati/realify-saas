@@ -603,6 +603,26 @@ export default function Page() {
                   border: '1px solid rgba(255,255,255,0.12)',
                 }}
               />
+
+              <div
+                style={{
+                  marginTop: 2,
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: 'rgba(255,255,255,0.82)',
+                  fontSize: 14,
+                  lineHeight: 1.5,
+                  wordBreak: 'break-word',
+                }}
+              >
+                {images.length === 0
+                  ? 'No reference images selected yet.'
+                  : images.length === 1
+                    ? `Attached: ${images[0].name}`
+                    : `Attached ${images.length} images: ${images.map((image) => image.name).join(', ')}`}
+              </div>
             </div>
           )}
         </div>
