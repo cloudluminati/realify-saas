@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 
 export default function ExplorePage() {
-
   const [images, setImages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState<any | null>(null);
@@ -11,11 +10,9 @@ export default function ExplorePage() {
   const [sort, setSort] = useState("new");
 
   async function loadImages(sortType: string) {
-
     setLoading(true);
 
     try {
-
       let endpoint = "/api/explore?sort=" + sortType;
 
       if (sortType === "following") {
@@ -29,34 +26,35 @@ export default function ExplorePage() {
       const data = await res.json();
 
       if (data?.images) {
-
         setImages(data.images);
 
-        const ids = data.images.map((i: any) => i.id);
+        const ids = data.images
+          .map((i: any) => i.id)
+          .filter(Boolean);
 
-        const likeRes = await fetch("/api/likes", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image_ids: ids }),
-        });
+        if (ids.length > 0) {
+          const likeRes = await fetch("/api/likes", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ image_ids: ids }),
+          });
 
-        const likeData = await likeRes.json();
+          const likeData = await likeRes.json();
 
-        if (likeData?.counts) {
-          setLikes(likeData.counts);
+          if (likeData?.counts) {
+            setLikes(likeData.counts);
+          }
+        } else {
+          setLikes({});
         }
-
       }
-
     } catch {}
 
     setLoading(false);
   }
 
   async function likeImage(image_id: string) {
-
     try {
-
       await fetch("/api/like", {
         method: "POST",
         headers: {
@@ -69,106 +67,144 @@ export default function ExplorePage() {
         ...prev,
         [image_id]: (prev[image_id] || 0) + 1
       }));
-
     } catch {}
-
   }
 
   function remixPrompt(prompt: string) {
-
-    const encoded = encodeURIComponent(prompt);
-
+    const encoded = encodeURIComponent(prompt || "");
     window.location.href = `/?prompt=${encoded}`;
   }
 
   function generateThis(prompt: string) {
-
-    const encoded = encodeURIComponent(prompt);
-
+    const encoded = encodeURIComponent(prompt || "");
     window.location.href = `/?prompt=${encoded}`;
   }
 
   async function copyPrompt(prompt: string) {
-
     try {
-
-      await navigator.clipboard.writeText(prompt);
-
+      await navigator.clipboard.writeText(prompt || "");
       alert("Prompt copied!");
-
     } catch {}
-
   }
 
   async function shareImage(image_id: string) {
-
     try {
-
       const url = `${window.location.origin}/image/${image_id}`;
-
       await navigator.clipboard.writeText(url);
-
       alert("Share link copied!");
-
     } catch {}
-
   }
 
   useEffect(() => {
-
     loadImages(sort);
-
   }, [sort]);
 
-  if (loading) {
+  const pageWrap: React.CSSProperties = {
+    maxWidth: 1100,
+    margin: "auto",
+    padding: 40,
+  };
 
+  const navButton: React.CSSProperties = {
+    padding: "12px 16px",
+    borderRadius: 16,
+    background: "#171717",
+    color: "white",
+    border: "1px solid rgba(255,255,255,0.14)",
+    fontWeight: 700,
+    cursor: "pointer",
+  };
+
+  const pillButton: React.CSSProperties = {
+    padding: "10px 14px",
+    borderRadius: 14,
+    background: "#171717",
+    color: "white",
+    border: "1px solid rgba(255,255,255,0.14)",
+    fontWeight: 700,
+    cursor: "pointer",
+  };
+
+  const cardStyle: React.CSSProperties = {
+    background: "rgba(10,10,10,0.92)",
+    border: "1px solid rgba(255,255,255,0.10)",
+    borderRadius: 20,
+    boxShadow: "0 20px 50px rgba(0,0,0,0.28)",
+    padding: 24,
+  };
+
+  if (loading) {
     return (
-      <main style={{ maxWidth: 1000, margin: "auto", padding: 40 }}>
-        <h1>Explore</h1>
-        <p>Loading creations...</p>
+      <main style={pageWrap}>
+        <div style={{ marginBottom: 20 }}>
+          <button onClick={() => (window.location.href = "/")} style={navButton}>
+            ⌂ Home
+          </button>
+        </div>
+
+        <div style={cardStyle}>
+          <h1 style={{ marginTop: 0, color: "white" }}>Explore</h1>
+          <p style={{ color: "rgba(255,255,255,0.72)" }}>Loading creations...</p>
+        </div>
       </main>
     );
   }
 
   return (
-
-    <main style={{ maxWidth: 1100, margin: "auto", padding: 40 }}>
-
-      <h1>Explore Creations</h1>
-
-      <p style={{ opacity: 0.7 }}>
-        See what others are creating with Realify.
-      </p>
-
-      <div style={{ marginTop: 20, marginBottom: 10 }}>
-
-        <button
-          onClick={() => setSort("following")}
-          style={{ marginRight: 10 }}
-        >
-          Following
+    <main style={pageWrap}>
+      <div style={{ marginBottom: 20 }}>
+        <button onClick={() => (window.location.href = "/")} style={navButton}>
+          ⌂ Home
         </button>
+      </div>
 
-        <button
-          onClick={() => setSort("trending")}
-          style={{ marginRight: 10 }}
+      <div style={{ ...cardStyle, marginBottom: 24 }}>
+        <h1
+          style={{
+            margin: 0,
+            color: "white",
+            fontSize: 42,
+            lineHeight: 1,
+            letterSpacing: "-0.04em",
+            fontWeight: 800,
+          }}
         >
-          Trending
-        </button>
+          Explore Creations
+        </h1>
 
-        <button
-          onClick={() => setSort("new")}
-          style={{ marginRight: 10 }}
-        >
-          Newest
-        </button>
+        <p style={{ opacity: 0.72, color: "white", marginTop: 14 }}>
+          See what others are creating with Realify.
+        </p>
 
-        <button
-          onClick={() => setSort("liked")}
-        >
-          Most Liked
-        </button>
+        <div style={{ marginTop: 20, marginBottom: 4, display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button
+            onClick={() => setSort("following")}
+            style={pillButton}
+          >
+            Following
+          </button>
 
+          <button
+            onClick={() => setSort("trending")}
+            style={pillButton}
+          >
+            Trending
+          </button>
+
+          <button
+            onClick={() => setSort("new")}
+            style={pillButton}
+          >
+            Newest
+          </button>
+
+          <button
+            onClick={() => setSort("liked")}
+            style={pillButton}
+          >
+            Most Liked
+          </button>
+        </div>
       </div>
 
       <div
@@ -179,19 +215,18 @@ export default function ExplorePage() {
           marginTop: 20,
         }}
       >
-
         {images.map((img, i) => (
-
           <div
-            key={i}
+            key={img.id ?? `${img.image_url ?? "image"}-${i}`}
             className="image-card"
             style={{
               position: "relative",
-              borderRadius: 8,
-              overflow: "hidden"
+              borderRadius: 12,
+              overflow: "hidden",
+              border: "1px solid rgba(255,255,255,0.08)",
+              boxShadow: "0 18px 40px rgba(0,0,0,0.28)",
             }}
           >
-
             <img
               src={img.image_url}
               onClick={() => setSelectedImage(img)}
@@ -204,7 +239,6 @@ export default function ExplorePage() {
             />
 
             <div className="hover-actions">
-
               <button
                 onClick={() => likeImage(img.id)}
                 style={{
@@ -262,17 +296,12 @@ export default function ExplorePage() {
               >
                 Download
               </a>
-
             </div>
-
           </div>
-
         ))}
-
       </div>
 
       {selectedImage && (
-
         <div
           onClick={() => setSelectedImage(null)}
           style={{
@@ -286,7 +315,6 @@ export default function ExplorePage() {
             padding: 20
           }}
         >
-
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
@@ -297,7 +325,6 @@ export default function ExplorePage() {
               borderRadius: 10
             }}
           >
-
             <img
               src={selectedImage.image_url}
               style={{
@@ -307,7 +334,6 @@ export default function ExplorePage() {
             />
 
             {selectedImage.prompt && (
-
               <p
                 style={{
                   marginTop: 10,
@@ -317,11 +343,9 @@ export default function ExplorePage() {
               >
                 {selectedImage.prompt}
               </p>
-
             )}
 
-            <div style={{ marginTop: 12 }}>
-
+            <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button
                 onClick={() => remixPrompt(selectedImage.prompt)}
                 style={{
@@ -330,7 +354,6 @@ export default function ExplorePage() {
                   border: "1px solid #444",
                   background: "#222",
                   color: "#fff",
-                  marginRight: 10
                 }}
               >
                 Remix Prompt
@@ -344,7 +367,6 @@ export default function ExplorePage() {
                   border: "1px solid #444",
                   background: "#222",
                   color: "#fff",
-                  marginRight: 10
                 }}
               >
                 Copy Prompt
@@ -358,7 +380,6 @@ export default function ExplorePage() {
                   border: "1px solid #444",
                   background: "#2a9d8f",
                   color: "#fff",
-                  marginRight: 10
                 }}
               >
                 Generate This
@@ -372,7 +393,6 @@ export default function ExplorePage() {
                   border: "1px solid #444",
                   background: "#457b9d",
                   color: "#fff",
-                  marginRight: 10
                 }}
               >
                 Share
@@ -390,17 +410,12 @@ export default function ExplorePage() {
               >
                 Close
               </button>
-
             </div>
-
           </div>
-
         </div>
-
       )}
 
       <style jsx>{`
-
         .image-card {
           position: relative;
         }
@@ -415,15 +430,14 @@ export default function ExplorePage() {
           gap: 10px;
           opacity: 0;
           transition: opacity 0.2s;
+          flex-wrap: wrap;
+          padding: 12px;
         }
 
         .image-card:hover .hover-actions {
           opacity: 1;
         }
-
       `}</style>
-
     </main>
-
   );
 }
