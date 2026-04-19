@@ -29,47 +29,96 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-async function stackUnitsForUser(
-  userId: string,
-  plan: string,
-  addUnits: number,
-  stripeCustomerId?: string
-) {
-  const { data: existingSub } = await supabase
+async function getSubscriptionRowByUser(userId: string) {
+  const { data } = await supabase
     .from("subscriptions")
     .select("*")
     .eq("user_id", userId)
+    .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (existingSub) {
-    const newRemaining =
-      Number(existingSub.units_remaining || 0) + addUnits;
+  return data;
+}
 
-    const newTotal =
-      Number(existingSub.units_total || 0) + addUnits;
+async function getSubscriptionRowByCustomer(customerId: string) {
+  const { data } = await supabase
+    .from("subscriptions")
+    .select("*")
+    .eq("stripe_customer_id", customerId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return data;
+}
+
+async function linkCustomerToUser(
+  userId: string,
+  stripeCustomerId: string,
+  plan?: string
+) {
+  const existingSub = await getSubscriptionRowByUser(userId);
+
+  if (existingSub) {
+    await supabase
+      .from("subscriptions")
+      .update({
+        stripe_customer_id: stripeCustomerId,
+        plan: plan || existingSub.plan,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", userId);
+    return;
+  }
+
+  await supabase.from("subscriptions").insert({
+    user_id: userId,
+    stripe_customer_id: stripeCustomerId,
+    plan: plan || "starter",
+    status: "inactive",
+    units_total: 0,
+    units_remaining: 0,
+  });
+}
+
+async function addUnitsToUser(
+  userId: string,
+  addUnits: number,
+  options?: {
+    plan?: string;
+    stripeCustomerId?: string;
+  }
+) {
+  const existingSub = await getSubscriptionRowByUser(userId);
+
+  if (existingSub) {
+    const newRemaining = Number(existingSub.units_remaining || 0) + addUnits;
+    const newTotal = Number(existingSub.units_total || 0) + addUnits;
 
     await supabase
       .from("subscriptions")
       .update({
-        plan,
+        plan: options?.plan || existingSub.plan,
         status: "active",
-        stripe_customer_id: stripeCustomerId,
+        stripe_customer_id: options?.stripeCustomerId || existingSub.stripe_customer_id,
         units_total: newTotal,
         units_remaining: newRemaining,
         updated_at: new Date().toISOString(),
       })
       .eq("user_id", userId);
-  } else {
-    await supabase.from("subscriptions").insert({
-      user_id: userId,
-      stripe_customer_id: stripeCustomerId,
-      plan,
-      status: "active",
-      units_total: addUnits,
-      units_remaining: addUnits,
-    });
+
+    return;
   }
+
+  await supabase.from("subscriptions").insert({
+    user_id: userId,
+    stripe_customer_id: options?.stripeCustomerId || null,
+    plan: options?.plan || "starter",
+    status: "active",
+    units_total: addUnits,
+    units_remaining: addUnits,
+  });
 }
 
 async function getPlanFromInvoice(invoice: Stripe.Invoice) {
@@ -107,10 +156,6 @@ export async function POST(req: Request) {
     );
   }
 
-  /* -------------------------------------------------------------------------- */
-  /* EVENT DEDUPLICATION (PREVENT DOUBLE CREDITS)                               */
-  /* -------------------------------------------------------------------------- */
-
   const { data: existingEvent } = await supabase
     .from("stripe_events")
     .select("id")
@@ -128,25 +173,36 @@ export async function POST(req: Request) {
 
   console.log("Stripe webhook:", event.type);
 
-  /* ---------------- ONE-TIME CREDIT BUNDLES ---------------- */
-
   if (event.type === "checkout.session.completed") {
-    const session = event.data.object as any;
+    const session = event.data.object as Stripe.Checkout.Session;
 
     const purchaseType = session.metadata?.purchase_type;
     const bundle = session.metadata?.bundle;
-    const userId = session.metadata?.user_id;
-    const customerId = session.customer;
+    const userId = session.metadata?.user_id || session.client_reference_id || undefined;
+    const plan = session.metadata?.plan;
+    const customerId =
+      typeof session.customer === "string" ? session.customer : undefined;
 
-    if (purchaseType === "credits_bundle" && userId && bundle) {
+    if (purchaseType === "subscription" && userId && customerId) {
+      await linkCustomerToUser(userId, customerId, plan || undefined);
+    }
+
+    if (
+      purchaseType === "credits_bundle" &&
+      userId &&
+      customerId &&
+      bundle &&
+      session.payment_status === "paid"
+    ) {
       const units = BUNDLE_UNITS[bundle];
       if (units) {
-        await stackUnitsForUser(userId, "starter", units, customerId);
+        await linkCustomerToUser(userId, customerId);
+        await addUnitsToUser(userId, units, {
+          stripeCustomerId: customerId,
+        });
       }
     }
   }
-
-  /* ---------------- SUBSCRIPTION PAYMENTS ---------------- */
 
   if (event.type === "invoice.payment_succeeded") {
     const invoice = event.data.object as Stripe.Invoice;
@@ -157,21 +213,41 @@ export async function POST(req: Request) {
     const units = PLAN_UNITS[plan];
     const customerId = invoice.customer as string;
 
-    const { data } = await supabase
-      .from("subscriptions")
-      .select("user_id")
-      .eq("stripe_customer_id", customerId)
-      .limit(1)
-      .maybeSingle();
-
-    const userId = data?.user_id;
+    const existingSub = await getSubscriptionRowByCustomer(customerId);
+    const userId = existingSub?.user_id;
 
     if (userId) {
-      await stackUnitsForUser(userId, plan, units, customerId);
+      await addUnitsToUser(userId, units, {
+        plan,
+        stripeCustomerId: customerId,
+      });
+    } else {
+      console.warn(
+        "invoice.payment_succeeded received but no local subscription row matched stripe_customer_id:",
+        customerId
+      );
     }
   }
 
-  /* ---------------- SUB CANCELLED ---------------- */
+  if (event.type === "customer.subscription.updated") {
+    const sub = event.data.object as Stripe.Subscription;
+    const customerId = sub.customer as string;
+
+    const nextStatus =
+      sub.status === "active" || sub.status === "trialing"
+        ? sub.cancel_at_period_end
+          ? "canceling"
+          : "active"
+        : "inactive";
+
+    await supabase
+      .from("subscriptions")
+      .update({
+        status: nextStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("stripe_customer_id", customerId);
+  }
 
   if (event.type === "customer.subscription.deleted") {
     const sub = event.data.object as Stripe.Subscription;

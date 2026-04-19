@@ -28,6 +28,56 @@ async function findOrCreateCustomer(email: string): Promise<string> {
   return created.id;
 }
 
+async function getOrCreateCustomerForUser(
+  userId: string,
+  email: string,
+  plan: Plan
+): Promise<string> {
+  const supabase = await getSupabaseServer();
+
+  const { data: existingSub } = await supabase
+    .from("subscriptions")
+    .select("stripe_customer_id")
+    .eq("user_id", userId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingSub?.stripe_customer_id) {
+    return existingSub.stripe_customer_id;
+  }
+
+  const customerId = await findOrCreateCustomer(email);
+
+  const { data: anySub } = await supabase
+    .from("subscriptions")
+    .select("user_id")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+
+  if (anySub) {
+    await supabase
+      .from("subscriptions")
+      .update({
+        stripe_customer_id: customerId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", userId);
+  } else {
+    await supabase.from("subscriptions").insert({
+      user_id: userId,
+      stripe_customer_id: customerId,
+      plan,
+      status: "inactive",
+      units_total: 0,
+      units_remaining: 0,
+    });
+  }
+
+  return customerId;
+}
+
 async function cancelExistingSubscriptions(customerId: string) {
   const subs = await stripe.subscriptions.list({
     customer: customerId,
@@ -75,14 +125,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const customerId = await findOrCreateCustomer(user.email);
+    const customerId = await getOrCreateCustomerForUser(user.id, user.email, plan);
 
-    // Strict billing model: cancel existing before creating new
     await cancelExistingSubscriptions(customerId);
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
+      client_reference_id: user.id,
       line_items: [{ price: priceId, quantity: 1 }],
 
       metadata: {
@@ -91,11 +141,28 @@ export async function POST(req: Request) {
         purchase_type: "subscription",
       },
 
+      subscription_data: {
+        metadata: {
+          user_id: user.id,
+          plan,
+          purchase_type: "subscription",
+        },
+      },
+
       allow_promotion_codes: false,
 
       success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/?upgrade=success`,
       cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/?upgrade=cancel`,
     });
+
+    await supabase
+      .from("subscriptions")
+      .update({
+        stripe_customer_id: customerId,
+        plan,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", user.id);
 
     return NextResponse.json({ url: session.url });
 

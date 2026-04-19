@@ -8,28 +8,36 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-01-28.clover",
 });
 
+async function findOrCreateCustomer(email: string): Promise<string> {
+  const existing = await stripe.customers.list({ email, limit: 1 });
+  if (existing.data?.[0]?.id) return existing.data[0].id;
+
+  const created = await stripe.customers.create({ email });
+  return created.id;
+}
+
 export async function POST(req: Request) {
   try {
     const supabase = await getSupabaseServer();
 
-    // ✅ AUTH CHECK
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) {
+    if (!user?.email) {
       return NextResponse.json(
         { error: "not_authenticated" },
         { status: 401 }
       );
     }
 
-    // ✅ REQUIRE ACTIVE SUBSCRIPTION
     const { data: sub } = await supabase
       .from("subscriptions")
-      .select("status")
+      .select("stripe_customer_id,status")
       .eq("user_id", user.id)
-      .in("status", ["active", "trialing"])
+      .in("status", ["active", "canceling"])
+      .order("updated_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (!sub) {
@@ -39,7 +47,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { bundle } = await req.json();
+    const { bundle } = await req.json().catch(() => ({}));
 
     let priceId: string | undefined;
 
@@ -58,10 +66,30 @@ export async function POST(req: Request) {
       );
     }
 
+    const customerId =
+      sub.stripe_customer_id || (await findOrCreateCustomer(user.email));
+
+    if (!sub.stripe_customer_id) {
+      await supabase
+        .from("subscriptions")
+        .update({
+          stripe_customer_id: customerId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", user.id);
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      customer_email: user.email ?? undefined,
+      customer: customerId,
+      client_reference_id: user.id,
       line_items: [{ price: priceId, quantity: 1 }],
+
+      metadata: {
+        user_id: user.id,
+        purchase_type: "credits_bundle",
+        bundle,
+      },
 
       payment_intent_data: {
         metadata: {
@@ -70,6 +98,8 @@ export async function POST(req: Request) {
           bundle,
         },
       },
+
+      allow_promotion_codes: false,
 
       success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/?credits=success`,
       cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/?credits=cancel`,
@@ -86,4 +116,3 @@ export async function POST(req: Request) {
     );
   }
 }
-

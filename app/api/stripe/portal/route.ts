@@ -47,9 +47,32 @@ export async function POST() {
       );
     }
 
+    const subscriptions = await stripe.subscriptions.list({
+      customer: data.stripe_customer_id,
+      status: "all",
+      limit: 20,
+    });
+
+    const currentSub = subscriptions.data.find((sub) =>
+      ["active", "trialing", "past_due", "unpaid"].includes(sub.status)
+    );
+
+    if (!currentSub) {
+      return NextResponse.json(
+        { error: "no_subscription" },
+        { status: 400 }
+      );
+    }
+
     const portal = await stripe.billingPortal.sessions.create({
       customer: data.stripe_customer_id,
-      return_url: process.env.NEXT_PUBLIC_SITE_URL!,
+      return_url: `${process.env.NEXT_PUBLIC_SITE_URL}/billing`,
+      flow_data: {
+        type: "subscription_cancel",
+        subscription_cancel: {
+          subscription: currentSub.id,
+        },
+      },
     });
 
     return NextResponse.json({ url: portal.url });
@@ -63,4 +86,3 @@ export async function POST() {
     );
   }
 }
-
