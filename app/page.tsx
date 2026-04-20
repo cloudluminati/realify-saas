@@ -16,6 +16,7 @@ export default function Page() {
   const [quality, setQuality] = useState<QualityChoice>('auto');
   const [prompt, setPrompt] = useState('');
   const [aspectRatio, setAspectRatio] = useState('1:1');
+  const [isPrivate, setIsPrivate] = useState(false);
 
   const [images, setImages] = useState<File[]>([]);
   const [result, setResult] = useState<string | null>(null);
@@ -50,6 +51,7 @@ export default function Page() {
         setImages([]);
         setPrompt('');
         setError(null);
+        setIsPrivate(false);
       }
     });
 
@@ -105,6 +107,7 @@ export default function Page() {
       setImages([]);
       setPrompt('');
       setError(null);
+      setIsPrivate(false);
 
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -181,6 +184,7 @@ export default function Page() {
       const formData = new FormData();
       formData.append('prompt', finalPrompt);
       formData.append('aspectRatio', aspectRatio);
+      formData.append('isPrivate', isPrivate ? 'true' : 'false');
 
       if (model === 'gpt') {
         formData.append('quality', quality);
@@ -301,6 +305,17 @@ export default function Page() {
     color: 'rgba(255,255,255,0.84)',
     fontSize: 14,
     lineHeight: 1.5,
+  };
+
+  const toggleWrapStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 14,
+    padding: '12px 14px',
+    borderRadius: 12,
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.08)',
   };
 
   const showBillingCta =
@@ -663,6 +678,26 @@ export default function Page() {
                   <option value="high">High</option>
                 </select>
               )}
+
+              <div style={toggleWrapStyle}>
+                <div>
+                  <div style={{ color: 'white', fontWeight: 700, fontSize: 14 }}>Private generation</div>
+                  <div style={{ color: 'rgba(255,255,255,0.62)', fontSize: 12, marginTop: 4 }}>
+                    Private images stay in your History only and won’t appear in Explore.
+                  </div>
+                </div>
+
+                <input
+                  type="checkbox"
+                  checked={isPrivate}
+                  onChange={(e) => setIsPrivate(e.target.checked)}
+                  style={{
+                    width: 18,
+                    height: 18,
+                    cursor: 'pointer',
+                  }}
+                />
+              </div>
 
               <input
                 ref={fileInputRef}

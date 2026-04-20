@@ -15,21 +15,14 @@ const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN!,
 });
 
-/* -------------------------------------------------------------------------- */
-/* RATE LIMITING SYSTEM                                                       */
-/* -------------------------------------------------------------------------- */
-
 const lastRequestMap = new Map<string, number>();
-const REQUEST_COOLDOWN = 2000; // 2 seconds
+const REQUEST_COOLDOWN = 2000;
 
 const generationWindow = new Map<string, number[]>();
 const MAX_GENERATIONS = 7;
-const WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+const WINDOW_MS = 5 * 60 * 1000;
 
-// Prevent parallel generations from multiple tabs
 const activeGenerations = new Set<string>();
-
-/* -------------------------------------------------------------------------- */
 
 const GPT_ALLOWED_RATIOS = new Set([
   "1:1",
@@ -101,7 +94,6 @@ const extractBuffer = (v: any): Buffer | null => {
 
 export async function POST(req: Request) {
   try {
-
     const supabaseServer = await getSupabaseServer();
 
     const {
@@ -117,10 +109,6 @@ export async function POST(req: Request) {
 
     const user_id = user.id;
 
-    /* ---------------------------------------------------------------------- */
-    /* PREVENT MULTIPLE TABS / PARALLEL GENERATIONS                           */
-    /* ---------------------------------------------------------------------- */
-
     if (activeGenerations.has(user_id)) {
       return NextResponse.json(
         { error: "Generation already in progress" },
@@ -131,11 +119,6 @@ export async function POST(req: Request) {
     activeGenerations.add(user_id);
 
     try {
-
-      /* ---------------------------------------------------------------------- */
-      /* 2 SECOND COOLDOWN                                                      */
-      /* ---------------------------------------------------------------------- */
-
       const now = Date.now();
       const lastRequest = lastRequestMap.get(user_id);
 
@@ -147,10 +130,6 @@ export async function POST(req: Request) {
       }
 
       lastRequestMap.set(user_id, now);
-
-      /* ---------------------------------------------------------------------- */
-      /* 7 GENERATIONS PER 5 MINUTES LIMIT                                      */
-      /* ---------------------------------------------------------------------- */
 
       const userHistory = generationWindow.get(user_id) || [];
 
@@ -167,8 +146,6 @@ export async function POST(req: Request) {
 
       recent.push(now);
       generationWindow.set(user_id, recent);
-
-      /* ---------------------------------------------------------------------- */
 
       const { data: sub } = await supabaseServer
         .from("subscriptions")
@@ -189,6 +166,7 @@ export async function POST(req: Request) {
       const prompt = formData.get("prompt");
       const aspectRatioRaw = formData.get("aspectRatio");
       const qualityRaw = formData.get("quality");
+      const isPrivateRaw = formData.get("isPrivate");
 
       if (!prompt || typeof prompt !== "string") {
         return NextResponse.json(
@@ -196,6 +174,8 @@ export async function POST(req: Request) {
           { status: 400 }
         );
       }
+
+      const is_private = isPrivateRaw === "true";
 
       const quality =
         qualityRaw === "low" ||
@@ -279,6 +259,7 @@ export async function POST(req: Request) {
         model: "gpt",
         aspect_ratio,
         image_url: data.publicUrl,
+        is_private,
       });
 
       await consume(user_id, cost);
@@ -288,14 +269,10 @@ export async function POST(req: Request) {
       });
 
     } finally {
-
-      // Always release the generation lock
       activeGenerations.delete(user_id);
-
     }
 
   } catch (err: any) {
-
     console.error("GPT ERROR:", err);
 
     if (
@@ -313,6 +290,5 @@ export async function POST(req: Request) {
       { error: "generation_failed" },
       { status: 500 }
     );
-
   }
 }

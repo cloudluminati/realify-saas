@@ -4,9 +4,7 @@ import { getSupabaseServer } from "@/app/lib/supabase-server";
 export const runtime = "nodejs";
 
 export async function GET() {
-
   try {
-
     const supabase = await getSupabaseServer();
 
     const {
@@ -32,6 +30,7 @@ export async function GET() {
       .from("image_generation_history")
       .select("id,image_url,prompt,created_at,user_id")
       .in("user_id", ids)
+      .eq("is_private", false)
       .order("created_at", { ascending: false })
       .limit(50);
 
@@ -40,12 +39,10 @@ export async function GET() {
     });
 
   } catch (err) {
-
     console.error(err);
 
     return NextResponse.json({
       images: []
     });
-
   }
 }

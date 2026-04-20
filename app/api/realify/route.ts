@@ -115,11 +115,14 @@ export async function POST(req: Request) {
       const formData = await req.formData();
       const prompt = formData.get("prompt");
       const aspectRatioRaw = formData.get("aspectRatio");
+      const isPrivateRaw = formData.get("isPrivate");
       const uploadedImages = formData.getAll("images");
 
       if (!prompt || typeof prompt !== "string") {
         return NextResponse.json({ error: "Missing prompt" }, { status: 400 });
       }
+
+      const is_private = isPrivateRaw === "true";
 
       const imageFiles = uploadedImages.filter(
         (value): value is File => value instanceof File && value.size > 0
@@ -158,6 +161,7 @@ export async function POST(req: Request) {
           model: "nano",
           aspect_ratio,
           image_url: output,
+          is_private,
         });
 
         await consume(user_id, UNIT_COSTS.nano);
@@ -231,6 +235,7 @@ export async function POST(req: Request) {
         model: "nano",
         aspect_ratio,
         image_url: data.publicUrl,
+        is_private,
       });
 
       await consume(user_id, UNIT_COSTS.nano);
