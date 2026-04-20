@@ -22,7 +22,7 @@ export async function GET() {
 
     const { data: images, error } = await supabase
       .from("image_generation_history")
-      .select("id, user_id, image_url, prompt, created_at")
+      .select("id, user_id, image_url, prompt, created_at, is_private")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(50);

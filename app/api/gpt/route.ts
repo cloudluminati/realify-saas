@@ -253,14 +253,24 @@ export async function POST(req: Request) {
         .from("generations")
         .getPublicUrl(fileName);
 
-      await supabaseServer.from("image_generation_history").insert({
-        user_id,
-        prompt,
-        model: "gpt",
-        aspect_ratio,
-        image_url: data.publicUrl,
-        is_private,
-      });
+      const { error: historyError } = await supabaseServer
+        .from("image_generation_history")
+        .insert({
+          user_id,
+          prompt,
+          model: "gpt",
+          aspect_ratio,
+          image_url: data.publicUrl,
+          is_private,
+        });
+
+      if (historyError) {
+        console.error("GPT history insert error:", historyError);
+        return NextResponse.json(
+          { error: "history_save_failed", details: historyError.message },
+          { status: 500 }
+        );
+      }
 
       await consume(user_id, cost);
 

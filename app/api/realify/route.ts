@@ -155,14 +155,24 @@ export async function POST(req: Request) {
       const output = await replicate.run("google/nano-banana-pro", { input });
 
       if (typeof output === "string" && output.startsWith("http")) {
-        await supabaseServer.from("image_generation_history").insert({
-          user_id,
-          prompt,
-          model: "nano",
-          aspect_ratio,
-          image_url: output,
-          is_private,
-        });
+        const { error: historyError } = await supabaseServer
+          .from("image_generation_history")
+          .insert({
+            user_id,
+            prompt,
+            model: "nano",
+            aspect_ratio,
+            image_url: output,
+            is_private,
+          });
+
+        if (historyError) {
+          console.error("Nano history insert error:", historyError);
+          return NextResponse.json(
+            { error: "history_save_failed", details: historyError.message },
+            { status: 500 }
+          );
+        }
 
         await consume(user_id, UNIT_COSTS.nano);
 
@@ -219,6 +229,7 @@ export async function POST(req: Request) {
         });
 
       if (uploadError) {
+        console.error("Nano storage upload error:", uploadError);
         return NextResponse.json(
           { error: "storage_upload_failed" },
           { status: 500 }
@@ -229,14 +240,24 @@ export async function POST(req: Request) {
         .from("generations")
         .getPublicUrl(fileName);
 
-      await supabaseServer.from("image_generation_history").insert({
-        user_id,
-        prompt,
-        model: "nano",
-        aspect_ratio,
-        image_url: data.publicUrl,
-        is_private,
-      });
+      const { error: historyError } = await supabaseServer
+        .from("image_generation_history")
+        .insert({
+          user_id,
+          prompt,
+          model: "nano",
+          aspect_ratio,
+          image_url: data.publicUrl,
+          is_private,
+        });
+
+      if (historyError) {
+        console.error("Nano history insert error:", historyError);
+        return NextResponse.json(
+          { error: "history_save_failed", details: historyError.message },
+          { status: 500 }
+        );
+      }
 
       await consume(user_id, UNIT_COSTS.nano);
 

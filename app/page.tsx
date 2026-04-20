@@ -9,6 +9,11 @@ import { supabase } from '@/app/lib/supabase';
 type ModelChoice = 'nano' | 'gpt';
 type QualityChoice = 'auto' | 'low' | 'medium' | 'high';
 
+type RecentImage = {
+  image: string;
+  prompt: string;
+};
+
 export default function Page() {
   const [user, setUser] = useState<any>(null);
 
@@ -20,7 +25,7 @@ export default function Page() {
 
   const [images, setImages] = useState<File[]>([]);
   const [result, setResult] = useState<string | null>(null);
-  const [recentImages, setRecentImages] = useState<{ image: string; prompt: string }[]>([]);
+  const [recentImages, setRecentImages] = useState<RecentImage[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -29,6 +34,35 @@ export default function Page() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  async function loadRecentImages(currentUser?: any) {
+    if (!currentUser) {
+      setRecentImages([]);
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/gallery', {
+        cache: 'no-store',
+        credentials: 'include',
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data?.images) {
+        setRecentImages(
+          data.images.slice(0, 4).map((img: any) => ({
+            image: img.image_url,
+            prompt: img.prompt || '',
+          }))
+        );
+      } else {
+        setRecentImages([]);
+      }
+    } catch {
+      setRecentImages([]);
+    }
+  }
+
   useEffect(() => {
     async function init() {
       const {
@@ -36,23 +70,34 @@ export default function Page() {
       } = await supabase.auth.getUser();
 
       setUser(user ?? null);
+
+      if (user) {
+        await loadRecentImages(user);
+      } else {
+        setRecentImages([]);
+      }
     }
 
     init();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const nextUser = session?.user ?? null;
 
-      if (!session?.user) {
+      setUser(nextUser);
+
+      if (!nextUser) {
         setRecentImages([]);
         setResult(null);
         setImages([]);
         setPrompt('');
         setError(null);
         setIsPrivate(false);
+        return;
       }
+
+      await loadRecentImages(nextUser);
     });
 
     return () => {
@@ -61,36 +106,12 @@ export default function Page() {
   }, []);
 
   useEffect(() => {
-    async function loadRecent() {
-      if (!user) {
-        setRecentImages([]);
-        return;
-      }
-
-      try {
-        const res = await fetch('/api/gallery', {
-          cache: 'no-store',
-          credentials: 'include',
-        });
-
-        const data = await res.json();
-
-        if (data?.images) {
-          setRecentImages(
-            data.images.slice(0, 4).map((img: any) => ({
-              image: img.image_url,
-              prompt: img.prompt || '',
-            }))
-          );
-        } else {
-          setRecentImages([]);
-        }
-      } catch {
-        setRecentImages([]);
-      }
+    if (!user) {
+      setRecentImages([]);
+      return;
     }
 
-    loadRecent();
+    loadRecentImages(user);
   }, [user]);
 
   async function handleLogout() {
@@ -219,6 +240,8 @@ export default function Page() {
           setError('Wait a couple seconds before trying again.');
         } else if (data.error === 'Generation already in progress') {
           setError('Image already generating...');
+        } else if (data.error === 'history_save_failed') {
+          setError('Image was generated, but saving to History failed. Check server logs.');
         } else {
           setError('Something went wrong. Try again.');
         }
@@ -233,7 +256,8 @@ export default function Page() {
         (Array.isArray(data.output) ? data.output[0] : data.output);
 
       setResult(img);
-      setRecentImages((prev) => [{ image: img, prompt: finalPrompt }, ...prev].slice(0, 4));
+
+      await loadRecentImages(user);
     } finally {
       setLoading(false);
     }
@@ -327,7 +351,8 @@ export default function Page() {
     error === 'Wait a couple seconds before trying again.' ||
     error === 'Image already generating...' ||
     error === 'Something went wrong. Try again.' ||
-    error === 'Only image files are allowed for reference uploads.';
+    error === 'Only image files are allowed for reference uploads.' ||
+    error === 'Image was generated, but saving to History failed. Check server logs.';
 
   const modelLabel = model === 'nano' ? 'Nano' : 'GPT Image';
   const modelModeLabel = model === 'nano' ? 'Best for speed' : 'Best for quality';
@@ -681,7 +706,9 @@ export default function Page() {
 
               <div style={toggleWrapStyle}>
                 <div>
-                  <div style={{ color: 'white', fontWeight: 700, fontSize: 14 }}>Private generation</div>
+                  <div style={{ color: 'white', fontWeight: 700, fontSize: 14 }}>
+                    Private generation
+                  </div>
                   <div style={{ color: 'rgba(255,255,255,0.62)', fontSize: 12, marginTop: 4 }}>
                     Private images stay in your History only and won’t appear in Explore.
                   </div>
