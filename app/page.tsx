@@ -52,6 +52,7 @@ export default function Page() {
         setPrompt('');
         setError(null);
         setIsPrivate(false);
+        setShowAdvanced(false);
       }
     });
 
@@ -93,6 +94,28 @@ export default function Page() {
     loadRecent();
   }, [user]);
 
+  async function triggerGoogleSignIn() {
+    await supabase.auth.signInWithOAuth({ provider: 'google' });
+  }
+
+  function getUserLabel() {
+    if (!user) return '';
+
+    const fullName =
+      user.user_metadata?.full_name ||
+      user.user_metadata?.name ||
+      user.identities?.[0]?.identity_data?.full_name ||
+      user.identities?.[0]?.identity_data?.name ||
+      '';
+
+    const firstName = typeof fullName === 'string' ? fullName.trim().split(' ')[0] : '';
+
+    if (firstName) return `Signed in as ${firstName}`;
+    if (user.email) return `Signed in as ${user.email}`;
+
+    return 'Signed in';
+  }
+
   async function handleLogout() {
     if (loggingOut) return;
 
@@ -108,16 +131,22 @@ export default function Page() {
       setPrompt('');
       setError(null);
       setIsPrivate(false);
+      setShowAdvanced(false);
+      setLoading(false);
+      setLoggingOut(false);
 
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-
-      window.location.href = '/';
     }
   }
 
   function handleImageUpload(files: FileList | null) {
+    if (!user) {
+      void triggerGoogleSignIn();
+      return;
+    }
+
     if (!files) return;
 
     const selectedFiles = Array.from(files);
@@ -172,6 +201,11 @@ export default function Page() {
   }
 
   async function generate(overridePrompt?: string) {
+    if (!user) {
+      await triggerGoogleSignIn();
+      return;
+    }
+
     const finalPrompt = (overridePrompt ?? prompt).trim();
 
     if (!finalPrompt || loading) return;
@@ -240,6 +274,11 @@ export default function Page() {
   }
 
   async function generateVariation() {
+    if (!user) {
+      await triggerGoogleSignIn();
+      return;
+    }
+
     if (!prompt.trim() || loading) return;
 
     const variations = [
@@ -261,17 +300,6 @@ export default function Page() {
 
   function handleRetry() {
     setError(null);
-  }
-
-  if (!user) {
-    return (
-      <main style={{ padding: 40 }}>
-        <h1>Realify</h1>
-        <button onClick={() => supabase.auth.signInWithOAuth({ provider: 'google' })}>
-          Login
-        </button>
-      </main>
-    );
   }
 
   const navButtonStyle: React.CSSProperties = {
@@ -340,576 +368,662 @@ export default function Page() {
         ? '1 reference image attached'
         : `${referenceCount} reference images attached`;
 
+  const userLabel = getUserLabel();
+
   return (
-    <main style={{ padding: '40px 40px 60px', maxWidth: 1400, margin: '0 auto' }}>
-      <div
+    <>
+      <header
         style={{
           position: 'fixed',
-          top: 22,
-          right: 22,
-          display: 'flex',
-          gap: 12,
-          zIndex: 20,
-        }}
-      >
-        <button onClick={handleLogout} style={navButtonStyle}>
-          {loggingOut ? 'Logging out...' : 'Logout'}
-        </button>
-        <button onClick={() => (window.location.href = '/billing')} style={navButtonStyle}>
-          Billing
-        </button>
-        <button onClick={() => (window.location.href = '/explore')} style={navButtonStyle}>
-          Explore
-        </button>
-        <button onClick={() => (window.location.href = '/history')} style={navButtonStyle}>
-          History
-        </button>
-      </div>
-
-      <div
-        style={{
-          ...cardStyle,
-          padding: '30px 32px',
-          marginBottom: 28,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          gap: 24,
-        }}
-      >
-        <div style={{ maxWidth: 760 }}>
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '8px 12px',
-              borderRadius: 999,
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              color: 'rgba(255,255,255,0.8)',
-              fontSize: 13,
-              marginBottom: 16,
-            }}
-          >
-            Realify Image Studio
-          </div>
-
-          <h1
-            style={{
-              margin: 0,
-              fontSize: 64,
-              lineHeight: 1,
-              color: 'white',
-              letterSpacing: '-0.04em',
-              fontWeight: 800,
-            }}
-          >
-            Realify
-          </h1>
-
-          <p
-            style={{
-              margin: '14px 0 0',
-              color: 'rgba(255,255,255,0.72)',
-              fontSize: 18,
-              lineHeight: 1.5,
-              maxWidth: 640,
-            }}
-          >
-            Generate premium AI images, iterate fast with variations, and keep your best
-            creations ready to download.
-          </p>
-        </div>
-
-        <div
-          style={{
-            minWidth: 280,
-            display: 'grid',
-            gap: 10,
-          }}
-        >
-          <div
-            style={{
-              padding: '14px 16px',
-              borderRadius: 16,
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.08)',
-            }}
-          >
-            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 4 }}>
-              Current model
-            </div>
-            <div style={{ color: 'white', fontWeight: 700 }}>{modelLabel}</div>
-            <div style={{ color: 'rgba(255,255,255,0.58)', fontSize: 12, marginTop: 4 }}>
-              {modelModeLabel}
-            </div>
-          </div>
-
-          <div
-            style={{
-              padding: '14px 16px',
-              borderRadius: 16,
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.08)',
-            }}
-          >
-            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 4 }}>
-              Current aspect ratio
-            </div>
-            <div style={{ color: 'white', fontWeight: 700 }}>{aspectRatio}</div>
-            {model === 'gpt' && (
-              <div style={{ color: 'rgba(255,255,255,0.58)', fontSize: 12, marginTop: 4 }}>
-                Quality: {quality}
-              </div>
-            )}
-          </div>
-
-          <div
-            style={{
-              padding: '14px 16px',
-              borderRadius: 16,
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.08)',
-            }}
-          >
-            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 4 }}>
-              Reference images
-            </div>
-            <div style={{ color: 'white', fontWeight: 700 }}>{referenceLabel}</div>
-            {referenceCount > 0 && (
-              <button
-                onClick={() => {
-                  setImages([]);
-                  if (fileInputRef.current) {
-                    fileInputRef.current.value = '';
-                  }
-                }}
-                style={{
-                  marginTop: 10,
-                  padding: '8px 12px',
-                  borderRadius: 12,
-                  background: '#1a1a1a',
-                  color: 'white',
-                  border: '1px solid rgba(255,255,255,0.14)',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                Clear
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div
-        style={{
-          display: 'grid',
-          maxWidth: '100%',
-          overflow: 'hidden',
-          gridTemplateColumns: '420px 1fr',
-          minWidth: 0,
-          gap: 30,
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 50,
+          background: 'rgba(0, 0, 0, 0.72)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
         }}
       >
         <div
           style={{
-            ...cardStyle,
-            padding: 24,
-            minWidth: 0,
+            maxWidth: 1400,
+            margin: '0 auto',
+            padding: '18px 40px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 24,
+            flexWrap: 'wrap',
           }}
         >
-          <textarea
-            style={{
-              width: '100%',
-              boxSizing: 'border-box',
-              height: 140,
-              padding: 16,
-              borderRadius: 14,
-              background: '#000',
-              color: 'white',
-              border: '1px solid rgba(255,255,255,0.1)',
-              fontSize: 16,
-              outline: 'none',
-              resize: 'vertical',
-            }}
-            placeholder="Describe your image..."
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-          />
-
-          <button
-            onClick={enhancePrompt}
-            style={{
-              marginTop: 12,
-              width: '100%',
-              padding: 12,
-              borderRadius: 14,
-              background: '#1a1a1a',
-              color: 'white',
-              border: '1px solid rgba(255,255,255,0.14)',
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            Enhance Prompt
-          </button>
-
-          <div
-            style={{
-              marginTop: 14,
-              display: 'flex',
-              gap: 10,
-            }}
-          >
-            <button
-              onClick={() => generate()}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div
               style={{
-                flex: 1,
-                padding: 14,
-                borderRadius: 14,
-                background: 'white',
-                color: 'black',
-                fontWeight: 700,
-                cursor: 'pointer',
-                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 14,
               }}
             >
-              {loading ? 'Generating...' : 'Generate'}
-            </button>
+              <img
+                src="/realify-logo.png"
+                alt="Realify logo"
+                style={{
+                  width: 42,
+                  height: 42,
+                  objectFit: 'contain',
+                  display: 'block',
+                  borderRadius: 10,
+                }}
+              />
 
-            <button
-              onClick={() => setShowAdvanced(!showAdvanced)}
+              <div
+                style={{
+                  color: 'white',
+                  fontSize: 32,
+                  fontWeight: 800,
+                  letterSpacing: '-0.04em',
+                  lineHeight: 1,
+                }}
+              >
+                Realify
+              </div>
+            </div>
+
+            <div
               style={{
-                padding: '14px 18px',
-                borderRadius: 14,
-                border: '1px solid rgba(255,255,255,0.16)',
-                background: '#111',
-                color: 'white',
-                cursor: 'pointer',
+                color: 'rgba(255,255,255,0.72)',
+                fontSize: 15,
                 fontWeight: 600,
               }}
             >
-              Advanced
-            </button>
+              {userLabel || 'Sign in with Google to generate and save images.'}
+            </div>
           </div>
 
-          {loading && (
-            <div style={infoBannerStyle}>
-              You can leave this page while your image finishes. Completed images will appear in
-              Recent and History.
+          <div
+            style={{
+              display: 'flex',
+              gap: 12,
+              flexWrap: 'wrap',
+              justifyContent: 'flex-end',
+            }}
+          >
+            {!user ? (
+              <button onClick={() => void triggerGoogleSignIn()} style={navButtonStyle}>
+                Continue with Google
+              </button>
+            ) : (
+              <>
+                <button onClick={() => (window.location.href = '/billing')} style={navButtonStyle}>
+                  Billing
+                </button>
+                <button onClick={() => (window.location.href = '/explore')} style={navButtonStyle}>
+                  Explore
+                </button>
+                <button onClick={() => (window.location.href = '/history')} style={navButtonStyle}>
+                  History
+                </button>
+                <button onClick={handleLogout} style={navButtonStyle}>
+                  {loggingOut ? 'Logging out...' : 'Logout'}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <main style={{ padding: '130px 40px 60px', maxWidth: 1400, margin: '0 auto' }}>
+        <div
+          style={{
+            ...cardStyle,
+            padding: '30px 32px',
+            marginBottom: 28,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            gap: 24,
+          }}
+        >
+          <div style={{ maxWidth: 760 }}>
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '8px 12px',
+                borderRadius: 999,
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                color: 'rgba(255,255,255,0.8)',
+                fontSize: 13,
+                marginBottom: 16,
+              }}
+            >
+              Realify Image Studio
             </div>
-          )}
 
-          {showAdvanced && (
-            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <select
-                value={model}
-                onChange={(e) => setModel(e.target.value as ModelChoice)}
-                style={{
-                  padding: 12,
-                  borderRadius: 12,
-                  background: '#111',
-                  color: 'white',
-                  border: '1px solid rgba(255,255,255,0.12)',
-                }}
-              >
-                <option value="nano">Nano</option>
-                <option value="gpt">GPT</option>
-              </select>
+            <p
+              style={{
+                margin: 0,
+                color: 'rgba(255,255,255,0.72)',
+                fontSize: 18,
+                lineHeight: 1.5,
+                maxWidth: 640,
+              }}
+            >
+              Create premium AI images in seconds.
+            </p>
+          </div>
 
-              {model === 'nano' ? (
-                <select
-                  value={aspectRatio}
-                  onChange={(e) => setAspectRatio(e.target.value)}
-                  style={{
-                    padding: 12,
-                    borderRadius: 12,
-                    background: '#111',
-                    color: 'white',
-                    border: '1px solid rgba(255,255,255,0.12)',
-                  }}
-                >
-                  <option value="1:1">1:1</option>
-                  <option value="16:9">16:9</option>
-                  <option value="9:16">9:16</option>
-                  <option value="4:5">4:5</option>
-                  <option value="4:3">4:3</option>
-                  <option value="3:2">3:2</option>
-                  <option value="2:3">2:3</option>
-                  <option value="21:9">21:9</option>
-                  <option value="9:21">9:21</option>
-                  <option value="match_input_image">match_input_image</option>
-                </select>
-              ) : (
-                <select
-                  value={aspectRatio}
-                  onChange={(e) => setAspectRatio(e.target.value)}
-                  style={{
-                    padding: 12,
-                    borderRadius: 12,
-                    background: '#111',
-                    color: 'white',
-                    border: '1px solid rgba(255,255,255,0.12)',
-                  }}
-                >
-                  <option value="1:1">1:1</option>
-                  <option value="3:2">3:2</option>
-                  <option value="2:3">2:3</option>
-                </select>
-              )}
+          <div
+            style={{
+              minWidth: 280,
+              display: 'grid',
+              gap: 10,
+            }}
+          >
+            <div
+              style={{
+                padding: '14px 16px',
+                borderRadius: 16,
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+              }}
+            >
+              <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 4 }}>
+                Current model
+              </div>
+              <div style={{ color: 'white', fontWeight: 700 }}>{modelLabel}</div>
+              <div style={{ color: 'rgba(255,255,255,0.58)', fontSize: 12, marginTop: 4 }}>
+                {modelModeLabel}
+              </div>
+            </div>
 
+            <div
+              style={{
+                padding: '14px 16px',
+                borderRadius: 16,
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+              }}
+            >
+              <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 4 }}>
+                Current aspect ratio
+              </div>
+              <div style={{ color: 'white', fontWeight: 700 }}>{aspectRatio}</div>
               {model === 'gpt' && (
-                <select
-                  value={quality}
-                  onChange={(e) => setQuality(e.target.value as QualityChoice)}
-                  style={{
-                    padding: 12,
-                    borderRadius: 12,
-                    background: '#111',
-                    color: 'white',
-                    border: '1px solid rgba(255,255,255,0.12)',
-                  }}
-                >
-                  <option value="auto">Auto</option>
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              )}
-
-              <div style={toggleWrapStyle}>
-                <div>
-                  <div style={{ color: 'white', fontWeight: 700, fontSize: 14 }}>Private generation</div>
-                  <div style={{ color: 'rgba(255,255,255,0.62)', fontSize: 12, marginTop: 4 }}>
-                    Private images stay in your History only and won’t appear in Explore.
-                  </div>
+                <div style={{ color: 'rgba(255,255,255,0.58)', fontSize: 12, marginTop: 4 }}>
+                  Quality: {quality}
                 </div>
+              )}
+            </div>
 
-                <input
-                  type="checkbox"
-                  checked={isPrivate}
-                  onChange={(e) => setIsPrivate(e.target.checked)}
+            <div
+              style={{
+                padding: '14px 16px',
+                borderRadius: 16,
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+              }}
+            >
+              <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 4 }}>
+                Reference images
+              </div>
+              <div style={{ color: 'white', fontWeight: 700 }}>{referenceLabel}</div>
+              {referenceCount > 0 && (
+                <button
+                  onClick={() => {
+                    setImages([]);
+                    if (fileInputRef.current) {
+                      fileInputRef.current.value = '';
+                    }
+                  }}
                   style={{
-                    width: 18,
-                    height: 18,
+                    marginTop: 10,
+                    padding: '8px 12px',
+                    borderRadius: 12,
+                    background: '#1a1a1a',
+                    color: 'white',
+                    border: '1px solid rgba(255,255,255,0.14)',
+                    fontWeight: 700,
                     cursor: 'pointer',
                   }}
-                />
-              </div>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept="image/*"
-                onChange={(e) => handleImageUpload(e.target.files)}
-                style={{
-                  padding: 12,
-                  borderRadius: 12,
-                  background: '#111',
-                  color: 'white',
-                  border: '1px solid rgba(255,255,255,0.12)',
-                }}
-              />
-
-              <div
-                style={{
-                  marginTop: 2,
-                  padding: '12px 14px',
-                  borderRadius: 12,
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  color: 'rgba(255,255,255,0.82)',
-                  fontSize: 14,
-                  lineHeight: 1.5,
-                  wordBreak: 'break-word',
-                }}
-              >
-                {images.length === 0
-                  ? 'No reference images selected yet.'
-                  : images.length === 1
-                    ? `Attached: ${images[0].name}`
-                    : `Attached ${images.length} images: ${images.map((image) => image.name).join(', ')}`}
-              </div>
+                >
+                  Clear
+                </button>
+              )}
             </div>
-          )}
+          </div>
         </div>
 
         <div
           style={{
-            ...cardStyle,
+            display: 'grid',
+            maxWidth: '100%',
+            overflow: 'hidden',
+            gridTemplateColumns: '420px 1fr',
             minWidth: 0,
-            padding: 24,
-            minHeight: 540,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            gap: 30,
           }}
         >
-          {error ? (
-            <div
-              style={{
-                width: '100%',
-                maxWidth: 520,
-                borderRadius: 18,
-                border: '1px solid rgba(255,120,120,0.22)',
-                background: 'rgba(70, 12, 12, 0.35)',
-                padding: 24,
-                boxShadow: '0 20px 50px rgba(0,0,0,0.25)',
-              }}
-            >
-              <div
-                style={{
-                  color: '#ff8f8f',
-                  fontWeight: 800,
-                  fontSize: 20,
-                  marginBottom: 10,
-                }}
-              >
-                Generation unavailable
-              </div>
-
-              <div
-                style={{
-                  color: 'rgba(255,255,255,0.84)',
-                  fontSize: 16,
-                  lineHeight: 1.5,
-                }}
-              >
-                {error}
-              </div>
-
-              {(showBillingCta || showRetryCta) && (
-                <div style={{ marginTop: 18, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  {showBillingCta && (
-                    <button
-                      onClick={() => (window.location.href = '/billing')}
-                      style={{
-                        padding: '12px 18px',
-                        borderRadius: 14,
-                        background: 'white',
-                        color: 'black',
-                        fontWeight: 800,
-                        cursor: 'pointer',
-                        border: 'none',
-                      }}
-                    >
-                      Go to Billing
-                    </button>
-                  )}
-
-                  {showRetryCta && (
-                    <button
-                      onClick={handleRetry}
-                      style={{
-                        padding: '12px 18px',
-                        borderRadius: 14,
-                        background: '#1f1f1f',
-                        color: 'white',
-                        fontWeight: 800,
-                        cursor: 'pointer',
-                        border: '1px solid rgba(255,255,255,0.16)',
-                      }}
-                    >
-                      Try Again
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          ) : !result ? (
-            <div style={{ opacity: 0.45, color: 'white', fontSize: 18 }}>
-              {loading ? 'Generating...' : 'Your image will appear here'}
-            </div>
-          ) : (
-            <div
-              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}
-            >
-              <img
-                src={result}
-                style={{
-                  maxWidth: '100%',
-                  maxHeight: '72vh',
-                  borderRadius: 16,
-                  boxShadow: '0 24px 60px rgba(0,0,0,0.35)',
-                }}
-              />
-
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button
-                  onClick={generateVariation}
-                  style={{
-                    padding: '12px 18px',
-                    borderRadius: 14,
-                    background: '#1f1f1f',
-                    color: 'white',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    border: '1px solid rgba(255,255,255,0.16)',
-                  }}
-                >
-                  Variation
-                </button>
-
-                <button
-                  onClick={() => {
-                    const link = document.createElement('a');
-                    link.href = result;
-                    link.download = `realify-${Date.now()}.png`;
-                    link.click();
-                  }}
-                  style={{
-                    padding: '12px 18px',
-                    borderRadius: 14,
-                    background: 'white',
-                    color: 'black',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    border: 'none',
-                  }}
-                >
-                  Download
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {recentImages.length > 0 && (
-        <div style={{ marginTop: 32 }}>
           <div
             style={{
               ...cardStyle,
-              padding: 20,
+              padding: 24,
+              minWidth: 0,
             }}
           >
-            <h3 style={{ margin: '0 0 14px', color: 'white', fontSize: 22 }}>Recent</h3>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              {recentImages.map((img, i) => (
-                <img
-                  key={`${img.image}-${i}`}
-                  src={img.image}
-                  onClick={() => {
-                    setPrompt(img.prompt);
-                    setResult(img.image);
-                  }}
+            <textarea
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                height: 140,
+                padding: 16,
+                borderRadius: 14,
+                background: '#000',
+                color: 'white',
+                border: '1px solid rgba(255,255,255,0.1)',
+                fontSize: 16,
+                outline: 'none',
+                resize: 'vertical',
+              }}
+              placeholder="Describe your image..."
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+            />
+
+            <button
+              onClick={enhancePrompt}
+              style={{
+                marginTop: 12,
+                width: '100%',
+                padding: 12,
+                borderRadius: 14,
+                background: '#1a1a1a',
+                color: 'white',
+                border: '1px solid rgba(255,255,255,0.14)',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Enhance Prompt
+            </button>
+
+            <div
+              style={{
+                marginTop: 14,
+                display: 'flex',
+                gap: 10,
+              }}
+            >
+              <button
+                onClick={() => void generate()}
+                style={{
+                  flex: 1,
+                  padding: 14,
+                  borderRadius: 14,
+                  background: 'white',
+                  color: 'black',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  border: 'none',
+                }}
+              >
+                {loading ? 'Generating...' : user ? 'Generate' : 'Continue with Google'}
+              </button>
+
+              <button
+                onClick={() => {
+                  if (!user) {
+                    void triggerGoogleSignIn();
+                    return;
+                  }
+
+                  setShowAdvanced(!showAdvanced);
+                }}
+                style={{
+                  padding: '14px 18px',
+                  borderRadius: 14,
+                  border: '1px solid rgba(255,255,255,0.16)',
+                  background: '#111',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                Advanced
+              </button>
+            </div>
+
+            {!user && (
+              <div style={infoBannerStyle}>
+                Sign in with Google to generate images, use reference uploads, and save your work.
+              </div>
+            )}
+
+            {loading && (
+              <div style={infoBannerStyle}>
+                You can leave this page while your image finishes. Completed images will appear in
+                Recent and History.
+              </div>
+            )}
+
+            {showAdvanced && (
+              <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <select
+                  value={model}
+                  onChange={(e) => setModel(e.target.value as ModelChoice)}
                   style={{
-                    width: 110,
-                    height: 110,
-                    objectFit: 'cover',
+                    padding: 12,
                     borderRadius: 12,
-                    cursor: 'pointer',
-                    border: '1px solid rgba(255,255,255,0.08)',
+                    background: '#111',
+                    color: 'white',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                  }}
+                >
+                  <option value="nano">Nano</option>
+                  <option value="gpt">GPT</option>
+                </select>
+
+                {model === 'nano' ? (
+                  <select
+                    value={aspectRatio}
+                    onChange={(e) => setAspectRatio(e.target.value)}
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      background: '#111',
+                      color: 'white',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                    }}
+                  >
+                    <option value="1:1">1:1</option>
+                    <option value="16:9">16:9</option>
+                    <option value="9:16">9:16</option>
+                    <option value="4:5">4:5</option>
+                    <option value="4:3">4:3</option>
+                    <option value="3:2">3:2</option>
+                    <option value="2:3">2:3</option>
+                    <option value="21:9">21:9</option>
+                    <option value="9:21">9:21</option>
+                    <option value="match_input_image">match_input_image</option>
+                  </select>
+                ) : (
+                  <select
+                    value={aspectRatio}
+                    onChange={(e) => setAspectRatio(e.target.value)}
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      background: '#111',
+                      color: 'white',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                    }}
+                  >
+                    <option value="1:1">1:1</option>
+                    <option value="3:2">3:2</option>
+                    <option value="2:3">2:3</option>
+                  </select>
+                )}
+
+                {model === 'gpt' && (
+                  <select
+                    value={quality}
+                    onChange={(e) => setQuality(e.target.value as QualityChoice)}
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      background: '#111',
+                      color: 'white',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                    }}
+                  >
+                    <option value="auto">Auto</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                )}
+
+                <div style={toggleWrapStyle}>
+                  <div>
+                    <div style={{ color: 'white', fontWeight: 700, fontSize: 14 }}>
+                      Private generation
+                    </div>
+                    <div style={{ color: 'rgba(255,255,255,0.62)', fontSize: 12, marginTop: 4 }}>
+                      Private images stay in your History only and won’t appear in Explore.
+                    </div>
+                  </div>
+
+                  <input
+                    type="checkbox"
+                    checked={isPrivate}
+                    onChange={(e) => setIsPrivate(e.target.checked)}
+                    style={{
+                      width: 18,
+                      height: 18,
+                      cursor: 'pointer',
+                    }}
+                  />
+                </div>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload(e.target.files)}
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    background: '#111',
+                    color: 'white',
+                    border: '1px solid rgba(255,255,255,0.12)',
                   }}
                 />
-              ))}
-            </div>
+
+                <div
+                  style={{
+                    marginTop: 2,
+                    padding: '12px 14px',
+                    borderRadius: 12,
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    color: 'rgba(255,255,255,0.82)',
+                    fontSize: 14,
+                    lineHeight: 1.5,
+                    wordBreak: 'break-word',
+                  }}
+                >
+                  {images.length === 0
+                    ? 'No reference images selected yet.'
+                    : images.length === 1
+                      ? `Attached: ${images[0].name}`
+                      : `Attached ${images.length} images: ${images.map((image) => image.name).join(', ')}`}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div
+            style={{
+              ...cardStyle,
+              minWidth: 0,
+              padding: 24,
+              minHeight: 540,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {error ? (
+              <div
+                style={{
+                  width: '100%',
+                  maxWidth: 520,
+                  borderRadius: 18,
+                  border: '1px solid rgba(255,120,120,0.22)',
+                  background: 'rgba(70, 12, 12, 0.35)',
+                  padding: 24,
+                  boxShadow: '0 20px 50px rgba(0,0,0,0.25)',
+                }}
+              >
+                <div
+                  style={{
+                    color: '#ff8f8f',
+                    fontWeight: 800,
+                    fontSize: 20,
+                    marginBottom: 10,
+                  }}
+                >
+                  Generation unavailable
+                </div>
+
+                <div
+                  style={{
+                    color: 'rgba(255,255,255,0.84)',
+                    fontSize: 16,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {error}
+                </div>
+
+                {(showBillingCta || showRetryCta) && (
+                  <div style={{ marginTop: 18, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    {showBillingCta && (
+                      <button
+                        onClick={() => (window.location.href = '/billing')}
+                        style={{
+                          padding: '12px 18px',
+                          borderRadius: 14,
+                          background: 'white',
+                          color: 'black',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          border: 'none',
+                        }}
+                      >
+                        Go to Billing
+                      </button>
+                    )}
+
+                    {showRetryCta && (
+                      <button
+                        onClick={handleRetry}
+                        style={{
+                          padding: '12px 18px',
+                          borderRadius: 14,
+                          background: '#1f1f1f',
+                          color: 'white',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          border: '1px solid rgba(255,255,255,0.16)',
+                        }}
+                      >
+                        Try Again
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : !result ? (
+              <div style={{ opacity: 0.45, color: 'white', fontSize: 18, textAlign: 'center' }}>
+                {loading
+                  ? 'Generating...'
+                  : user
+                    ? 'Your image will appear here'
+                    : 'Sign in with Google to start generating'}
+              </div>
+            ) : (
+              <div
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}
+              >
+                <img
+                  src={result}
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '72vh',
+                    borderRadius: 16,
+                    boxShadow: '0 24px 60px rgba(0,0,0,0.35)',
+                  }}
+                />
+
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    onClick={() => void generateVariation()}
+                    style={{
+                      padding: '12px 18px',
+                      borderRadius: 14,
+                      background: '#1f1f1f',
+                      color: 'white',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      border: '1px solid rgba(255,255,255,0.16)',
+                    }}
+                  >
+                    Variation
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = result;
+                      link.download = `realify-${Date.now()}.png`;
+                      link.click();
+                    }}
+                    style={{
+                      padding: '12px 18px',
+                      borderRadius: 14,
+                      background: 'white',
+                      color: 'black',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      border: 'none',
+                    }}
+                  >
+                    Download
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      )}
-    </main>
+
+        {recentImages.length > 0 && (
+          <div style={{ marginTop: 32 }}>
+            <div
+              style={{
+                ...cardStyle,
+                padding: 20,
+              }}
+            >
+              <h3 style={{ margin: '0 0 14px', color: 'white', fontSize: 22 }}>Recent</h3>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                {recentImages.map((img, i) => (
+                  <img
+                    key={`${img.image}-${i}`}
+                    src={img.image}
+                    onClick={() => {
+                      setPrompt(img.prompt);
+                      setResult(img.image);
+                    }}
+                    style={{
+                      width: 110,
+                      height: 110,
+                      objectFit: 'cover',
+                      borderRadius: 12,
+                      cursor: 'pointer',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+    </>
   );
 }
