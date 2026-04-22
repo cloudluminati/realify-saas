@@ -488,7 +488,7 @@ export default function Page() {
         </div>
       </header>
 
-      <main style={{ padding: '130px 40px 60px', maxWidth: 1400, margin: '0 auto' }}>
+      <main style={{ padding: '160px 40px 60px', maxWidth: 1400, margin: '0 auto' }}>
         <div
           style={{
             ...cardStyle,
@@ -501,22 +501,6 @@ export default function Page() {
           }}
         >
           <div style={{ maxWidth: 760 }}>
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '8px 12px',
-                borderRadius: 999,
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                color: 'rgba(255,255,255,0.8)',
-                fontSize: 13,
-                marginBottom: 16,
-              }}
-            >
-              Realify Image Studio
-            </div>
 
             <p
               style={{
