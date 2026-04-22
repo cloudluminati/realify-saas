@@ -302,6 +302,10 @@ export default function Page() {
     setError(null);
   }
 
+  function handleFooterPlaceholder(label: string) {
+    window.alert(`${label} page coming soon.`);
+  }
+
   const navButtonStyle: React.CSSProperties = {
     padding: '12px 22px',
     borderRadius: 16,
@@ -313,6 +317,17 @@ export default function Page() {
     fontWeight: 600,
     cursor: 'pointer',
     boxShadow: '0 12px 30px rgba(0,0,0,0.25)',
+  };
+
+  const footerLinkStyle: React.CSSProperties = {
+    background: 'transparent',
+    color: 'rgba(255,255,255,0.78)',
+    border: 'none',
+    padding: 0,
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: 'pointer',
+    textAlign: 'left',
   };
 
   const cardStyle: React.CSSProperties = {
@@ -1023,6 +1038,116 @@ export default function Page() {
             </div>
           </div>
         )}
+
+        <footer
+          style={{
+            marginTop: 42,
+            ...cardStyle,
+            padding: '28px 30px',
+          }}
+        >
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1.4fr 1fr 1fr',
+              gap: 28,
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  marginBottom: 14,
+                }}
+              >
+                <img
+                  src="/realify-logo.png"
+                  alt="Realify logo"
+                  style={{
+                    width: 34,
+                    height: 34,
+                    objectFit: 'contain',
+                    display: 'block',
+                    borderRadius: 8,
+                  }}
+                />
+                <div
+                  style={{
+                    color: 'white',
+                    fontSize: 22,
+                    fontWeight: 800,
+                    letterSpacing: '-0.03em',
+                  }}
+                >
+                  Realify
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div
+                style={{
+                  color: 'white',
+                  fontSize: 14,
+                  fontWeight: 700,
+                  marginBottom: 14,
+                }}
+              >
+                Support
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <button
+                  onClick={() => handleFooterPlaceholder('Contact / Support')}
+                  style={footerLinkStyle}
+                >
+                  Contact / Support
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <div
+                style={{
+                  color: 'white',
+                  fontSize: 14,
+                  fontWeight: 700,
+                  marginBottom: 14,
+                }}
+              >
+                Company
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <button
+                  onClick={() => handleFooterPlaceholder('Affiliate Program')}
+                  style={footerLinkStyle}
+                >
+                  Affiliate Program
+                </button>
+
+                <button onClick={() => handleFooterPlaceholder('Legal')} style={footerLinkStyle}>
+                  Legal
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              marginTop: 24,
+              paddingTop: 18,
+              borderTop: '1px solid rgba(255,255,255,0.08)',
+              color: 'rgba(255,255,255,0.5)',
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
+            Realify © 2026
+          </div>
+        </footer>
       </main>
     </>
   );
