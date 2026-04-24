@@ -152,7 +152,7 @@ export async function POST(req: Request) {
         input.image_input = imageFiles;
       }
 
-      const output = await replicate.run("google/nano-banana-pro", { input });
+      const output: unknown = await replicate.run("google/nano-banana-pro", { input });
 
       if (typeof output === "string" && output.startsWith("http")) {
         const { error: historyError } = await supabaseServer
