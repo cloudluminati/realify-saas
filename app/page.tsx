@@ -1084,7 +1084,7 @@ export default function Page() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <button
-                  onClick={() => handleFooterPlaceholder('Contact / Support')}
+                  onClick={() => (window.location.href = "/contact-support")}
                   style={footerLinkStyle}
                 >
                   Contact / Support
@@ -1106,13 +1106,13 @@ export default function Page() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <button
-                  onClick={() => handleFooterPlaceholder('Affiliate Program')}
+                  onClick={() => (window.location.href = "/affiliate-program")}
                   style={footerLinkStyle}
                 >
                   Affiliate Program
                 </button>
 
-                <button onClick={() => handleFooterPlaceholder('Legal')} style={footerLinkStyle}>
+                <button onClick={() => (window.location.href = "/legal")} style={footerLinkStyle}>
                   Legal
                 </button>
               </div>

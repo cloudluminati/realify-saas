@@ -21,6 +21,10 @@ export default function BillingPage() {
   const [bundleLoading, setBundleLoading] = useState<"small" | "medium" | "large" | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  const [pendingPlan, setPendingPlan] = useState<"starter" | "creator" | null>(null);
+  const [showAgreementModal, setShowAgreementModal] = useState(false);
+  const [agreedToLegal, setAgreedToLegal] = useState(false);
+
   useEffect(() => {
     async function loadStatus() {
       try {
@@ -103,6 +107,13 @@ export default function BillingPage() {
     borderRadius: 16,
   };
 
+  const linkStyle: React.CSSProperties = {
+    color: "white",
+    textDecoration: "underline",
+    cursor: "pointer",
+    fontWeight: 700,
+  };
+
   const openCancelFlow = async (customNotice?: string) => {
     if (portalLoading) return;
 
@@ -135,14 +146,7 @@ export default function BillingPage() {
     }
   };
 
-  const handlePlanClick = async (plan: "starter" | "creator") => {
-    setNotice(null);
-
-    if (hasLockedSubscription) {
-      setNotice(LOCKED_MESSAGE);
-      return;
-    }
-
+  const startCheckout = async (plan: "starter" | "creator") => {
     setLoadingPlan(plan);
 
     try {
@@ -165,6 +169,32 @@ export default function BillingPage() {
       alert("Checkout failed");
       setLoadingPlan(null);
     }
+  };
+
+  const handlePlanClick = async (plan: "starter" | "creator") => {
+    setNotice(null);
+
+    if (hasLockedSubscription) {
+      setNotice(LOCKED_MESSAGE);
+      return;
+    }
+
+    setPendingPlan(plan);
+    setAgreedToLegal(false);
+    setShowAgreementModal(true);
+  };
+
+  const confirmPlanCheckout = async () => {
+    if (!pendingPlan || !agreedToLegal) return;
+    setShowAgreementModal(false);
+    await startCheckout(pendingPlan);
+  };
+
+  const closeAgreementModal = () => {
+    if (loadingPlan) return;
+    setShowAgreementModal(false);
+    setPendingPlan(null);
+    setAgreedToLegal(false);
   };
 
   const buyCredits = async (bundle: "small" | "medium" | "large") => {
@@ -531,6 +561,144 @@ export default function BillingPage() {
             >
               {portalLoading ? "Opening..." : "Cancel Current Subscription"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {showAgreementModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.72)",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 100,
+            padding: 20,
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 640,
+              ...cardStyle,
+              padding: 28,
+              border: "1px solid rgba(255,255,255,0.12)",
+            }}
+          >
+            <div
+              style={{
+                color: "white",
+                fontSize: 28,
+                fontWeight: 800,
+                marginBottom: 12,
+                letterSpacing: "-0.03em",
+              }}
+            >
+              Before you continue
+            </div>
+
+            <div
+              style={{
+                color: "rgba(255,255,255,0.76)",
+                fontSize: 15,
+                lineHeight: 1.7,
+                marginBottom: 18,
+              }}
+            >
+              Please review and accept our legal terms before continuing to checkout for the{" "}
+              <strong style={{ color: "white", textTransform: "capitalize" }}>
+                {pendingPlan ?? ""}
+              </strong>{" "}
+              plan.
+            </div>
+
+            <div
+              style={{
+                maxHeight: 220,
+                overflowY: "auto",
+                padding: 16,
+                borderRadius: 14,
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                color: "rgba(255,255,255,0.78)",
+                lineHeight: 1.7,
+                fontSize: 14,
+              }}
+            >
+              By continuing, you agree that you are at least 18 years old, that you will use
+              RealifyAI in compliance with applicable law, that all purchases are final and
+              non-refundable except where required by law, and that AI-generated outputs may be
+              inaccurate, incomplete, or implicate third-party rights. Your use of RealifyAI is also
+              subject to our full Terms of Service and Privacy Policy.
+            </div>
+
+            <div style={{ marginTop: 16, ...mutedText }}>
+              Review the full legal pages:
+              <div style={{ marginTop: 8, display: "flex", gap: 16, flexWrap: "wrap" }}>
+                <span onClick={() => window.open("/legal/terms", "_blank")} style={linkStyle}>
+                  Terms of Service
+                </span>
+                <span onClick={() => window.open("/legal/privacy", "_blank")} style={linkStyle}>
+                  Privacy Policy
+                </span>
+              </div>
+            </div>
+
+            <label
+              style={{
+                marginTop: 18,
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 12,
+                color: "white",
+                lineHeight: 1.6,
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={agreedToLegal}
+                onChange={(e) => setAgreedToLegal(e.target.checked)}
+                style={{ marginTop: 4, width: 18, height: 18, cursor: "pointer" }}
+              />
+              <span>
+                I agree to the{" "}
+                <span onClick={() => window.open("/legal/terms", "_blank")} style={linkStyle}>
+                  Terms of Service
+                </span>{" "}
+                and{" "}
+                <span onClick={() => window.open("/legal/privacy", "_blank")} style={linkStyle}>
+                  Privacy Policy
+                </span>
+                .
+              </span>
+            </label>
+
+            <div
+              style={{
+                marginTop: 22,
+                display: "flex",
+                gap: 12,
+                justifyContent: "flex-end",
+                flexWrap: "wrap",
+              }}
+            >
+              <button onClick={closeAgreementModal} style={darkButton} disabled={loadingPlan !== null}>
+                Cancel
+              </button>
+
+              <button
+                onClick={confirmPlanCheckout}
+                disabled={!agreedToLegal || loadingPlan !== null}
+                style={!agreedToLegal || loadingPlan !== null ? disabledButton : lightButton}
+              >
+                {loadingPlan ? "Loading..." : "Agree and Continue"}
+              </button>
+            </div>
           </div>
         </div>
       )}
