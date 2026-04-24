@@ -26,6 +26,7 @@ export default function Page() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -110,8 +111,8 @@ export default function Page() {
 
     const firstName = typeof fullName === 'string' ? fullName.trim().split(' ')[0] : '';
 
-    if (firstName) return `Signed in as ${firstName}`;
-    if (user.email) return `Signed in as ${user.email}`;
+    if (firstName) return `Signed in as: ${firstName}`;
+    if (user.email) return `Signed in as: ${user.email}`;
 
     return 'Signed in';
   }
@@ -307,16 +308,71 @@ export default function Page() {
   }
 
   const navButtonStyle: React.CSSProperties = {
-    padding: '12px 22px',
-    borderRadius: 16,
+    minWidth: 148,
+    height: 58,
+    padding: '0 22px',
+    borderRadius: 18,
     background: 'rgba(8, 8, 8, 0.92)',
     color: 'white',
     border: '1px solid rgba(255,255,255,0.12)',
     backdropFilter: 'blur(10px)',
     WebkitBackdropFilter: 'blur(10px)',
-    fontWeight: 600,
+    fontWeight: 700,
+    fontSize: 16,
     cursor: 'pointer',
     boxShadow: '0 12px 30px rgba(0,0,0,0.25)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  };
+
+  const menuButtonStyle: React.CSSProperties = {
+    width: 62,
+    height: 58,
+    borderRadius: 18,
+    background: 'rgba(8, 8, 8, 0.92)',
+    color: 'white',
+    border: '1px solid rgba(255,255,255,0.12)',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    fontWeight: 800,
+    fontSize: 26,
+    cursor: 'pointer',
+    boxShadow: '0 12px 30px rgba(0,0,0,0.25)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    lineHeight: 1,
+  };
+
+  const menuPanelStyle: React.CSSProperties = {
+    position: 'absolute',
+    top: 'calc(100% + 12px)',
+    right: 0,
+    minWidth: 220,
+    padding: 10,
+    borderRadius: 18,
+    background: 'rgba(10, 10, 10, 0.96)',
+    border: '1px solid rgba(255,255,255,0.10)',
+    boxShadow: '0 24px 60px rgba(0,0,0,0.34)',
+    backdropFilter: 'blur(12px)',
+    WebkitBackdropFilter: 'blur(12px)',
+    display: 'grid',
+    gap: 8,
+  };
+
+  const menuItemStyle: React.CSSProperties = {
+    width: '100%',
+    minHeight: 48,
+    padding: '12px 14px',
+    borderRadius: 14,
+    background: 'rgba(255,255,255,0.04)',
+    color: 'white',
+    border: '1px solid rgba(255,255,255,0.08)',
+    fontWeight: 700,
+    fontSize: 15,
+    cursor: 'pointer',
+    textAlign: 'left',
   };
 
   const footerLinkStyle: React.CSSProperties = {
@@ -404,7 +460,7 @@ export default function Page() {
           style={{
             maxWidth: 1400,
             margin: '0 auto',
-            padding: '18px 40px',
+            padding: '20px 40px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -412,20 +468,20 @@ export default function Page() {
             flexWrap: 'wrap',
           }}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 14,
+                gap: 16,
               }}
             >
               <img
                 src="/realify-logo.png"
                 alt="Realify logo"
                 style={{
-                  width: 42,
-                  height: 42,
+                  width: 64,
+                  height: 64,
                   objectFit: 'contain',
                   display: 'block',
                   borderRadius: 10,
@@ -435,7 +491,7 @@ export default function Page() {
               <div
                 style={{
                   color: 'white',
-                  fontSize: 32,
+                  fontSize: 46,
                   fontWeight: 800,
                   letterSpacing: '-0.04em',
                   lineHeight: 1,
@@ -447,9 +503,10 @@ export default function Page() {
 
             <div
               style={{
-                color: 'rgba(255,255,255,0.72)',
-                fontSize: 15,
+                color: 'rgba(255,255,255,0.64)',
+                fontSize: 14,
                 fontWeight: 600,
+                paddingLeft: 2,
               }}
             >
               {userLabel || 'Sign in with Google to generate and save images.'}
@@ -458,10 +515,12 @@ export default function Page() {
 
           <div
             style={{
+              position: 'relative',
               display: 'flex',
               gap: 12,
               flexWrap: 'wrap',
               justifyContent: 'flex-end',
+              alignItems: 'center',
             }}
           >
             {!user ? (
@@ -470,38 +529,77 @@ export default function Page() {
               </button>
             ) : (
               <>
-                <button onClick={() => (window.location.href = '/billing')} style={navButtonStyle}>
-                  Billing
+                <button
+                  onClick={() => setShowHeaderMenu((prev) => !prev)}
+                  style={menuButtonStyle}
+                  aria-label="Open menu"
+                >
+                  ☰
                 </button>
-                <button onClick={() => (window.location.href = '/explore')} style={navButtonStyle}>
-                  Explore
-                </button>
-                <button onClick={() => (window.location.href = '/history')} style={navButtonStyle}>
-                  History
-                </button>
-                <button onClick={handleLogout} style={navButtonStyle}>
-                  {loggingOut ? 'Logging out...' : 'Logout'}
-                </button>
+
+                {showHeaderMenu && (
+                  <div style={menuPanelStyle}>
+                    <button
+                      onClick={() => {
+                        setShowHeaderMenu(false);
+                        window.location.href = '/billing';
+                      }}
+                      style={menuItemStyle}
+                    >
+                      Billing
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setShowHeaderMenu(false);
+                        window.location.href = '/explore';
+                      }}
+                      style={menuItemStyle}
+                    >
+                      Explore
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setShowHeaderMenu(false);
+                        window.location.href = '/history';
+                      }}
+                      style={menuItemStyle}
+                    >
+                      History
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setShowHeaderMenu(false);
+                        void handleLogout();
+                      }}
+                      style={menuItemStyle}
+                    >
+                      {loggingOut ? 'Logging out...' : 'Logout'}
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </div>
         </div>
       </header>
 
-      <main style={{ padding: '160px 40px 60px', maxWidth: 1400, margin: '0 auto' }}>
+      <main style={{ padding: '176px 40px 60px', maxWidth: 1400, margin: '0 auto' }}>
         <div
           style={{
             ...cardStyle,
-            padding: '30px 32px',
-            marginBottom: 28,
+            padding: '20px 24px',
+            marginBottom: 22,
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            gap: 24,
+            alignItems: 'center',
+            gap: 18,
+            flexWrap: 'wrap',
           }}
         >
-          <div style={{ maxWidth: 760 }}>
-
+          <div style={{ maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <p
               style={{
                 margin: 0,
@@ -517,15 +615,18 @@ export default function Page() {
 
           <div
             style={{
-              minWidth: 280,
-              display: 'grid',
+              display: 'flex',
               gap: 10,
+              flexWrap: 'wrap',
+              justifyContent: 'flex-end',
+              alignItems: 'stretch',
             }}
           >
             <div
               style={{
-                padding: '14px 16px',
-                borderRadius: 16,
+                minWidth: 210,
+                padding: '12px 14px',
+                borderRadius: 18,
                 background: 'rgba(255,255,255,0.04)',
                 border: '1px solid rgba(255,255,255,0.08)',
               }}
@@ -541,8 +642,9 @@ export default function Page() {
 
             <div
               style={{
-                padding: '14px 16px',
-                borderRadius: 16,
+                minWidth: 210,
+                padding: '12px 14px',
+                borderRadius: 18,
                 background: 'rgba(255,255,255,0.04)',
                 border: '1px solid rgba(255,255,255,0.08)',
               }}
@@ -560,8 +662,9 @@ export default function Page() {
 
             <div
               style={{
-                padding: '14px 16px',
-                borderRadius: 16,
+                minWidth: 210,
+                padding: '12px 14px',
+                borderRadius: 18,
                 background: 'rgba(255,255,255,0.04)',
                 border: '1px solid rgba(255,255,255,0.08)',
               }}
