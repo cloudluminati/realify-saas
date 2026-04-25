@@ -31,20 +31,37 @@ export default function Page() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
+    async function syncProfile() {
+      try {
+        await fetch('/api/profile-sync', {
+          method: 'POST',
+          credentials: 'include',
+        });
+      } catch {}
+    }
+
     async function init() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
       setUser(user ?? null);
+
+      if (user) {
+        await syncProfile();
+      }
     }
 
     init();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null);
+
+      if (session?.user) {
+        await syncProfile();
+      }
 
       if (!session?.user) {
         setRecentImages([]);
