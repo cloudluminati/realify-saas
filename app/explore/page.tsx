@@ -423,19 +423,27 @@ export default function ExplorePage() {
         </p>
 
         <div style={{ marginTop: 20, marginBottom: 4, display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button onClick={() => setSort("following")} style={pillButton}>
-            Following
-          </button>
-
-          <button onClick={() => setSort("trending")} style={pillButton}>
-            Trending
-          </button>
-
-          <button onClick={() => setSort("new")} style={pillButton}>
+          <button
+            onClick={() => setSort("new")}
+            style={{
+              ...pillButton,
+              background: sort === "new" ? "white" : "#171717",
+              color: sort === "new" ? "black" : "white",
+              border: sort === "new" ? "none" : "1px solid rgba(255,255,255,0.14)",
+            }}
+          >
             Newest
           </button>
 
-          <button onClick={() => setSort("liked")} style={pillButton}>
+          <button
+            onClick={() => setSort("liked")}
+            style={{
+              ...pillButton,
+              background: sort === "liked" ? "white" : "#171717",
+              color: sort === "liked" ? "black" : "white",
+              border: sort === "liked" ? "none" : "1px solid rgba(255,255,255,0.14)",
+            }}
+          >
             Most Liked
           </button>
         </div>
@@ -490,7 +498,7 @@ export default function ExplorePage() {
 
                 <div>
                   <div style={{ color: "white", fontWeight: 800, fontSize: 16 }}>
-                    {selectedImage.creator_name || "Realify User"}
+                    {selectedImage.creator_name || "Creator"}
                   </div>
                   <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>
                     {timeAgo(selectedImage.created_at)}
@@ -722,7 +730,7 @@ export default function ExplorePage() {
 
                           <div>
                             <div style={{ color: "white", fontWeight: 700, fontSize: 14 }}>
-                              {comment.creator_name || "Realify User"}
+                              {comment.creator_name || "Creator"}
                             </div>
                             <div style={{ color: "rgba(255,255,255,0.58)", fontSize: 12 }}>
                               {timeAgo(comment.created_at)}
@@ -804,7 +812,7 @@ export default function ExplorePage() {
 
                   <div style={{ padding: 14 }}>
                     <div style={{ color: "white", fontWeight: 800, fontSize: 14 }}>
-                      {img.creator_name || "Realify User"}
+                      {img.creator_name || "Creator"}
                     </div>
 
                     <div style={{ color: "rgba(255,255,255,0.58)", fontSize: 12, marginTop: 4 }}>
