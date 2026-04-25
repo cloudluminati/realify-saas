@@ -4,13 +4,10 @@ import { createClient } from "@supabase/supabase-js";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// We upload to Supabase Storage using the SERVICE ROLE key on the server.
-// This keeps the client from needing any write permissions.
 const BUCKET = "realify-media";
 
-// Keep it simple + safe
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
-const ALLOWED_MIME = new Set(["image/png", "image/jpeg", "image/webp"]);
+const ALLOWED_MIME = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
 
 function getEnv(name: string) {
   const v = process.env[name];
@@ -41,7 +38,7 @@ export async function POST(req: Request) {
 
     if (!ALLOWED_MIME.has(file.type)) {
       return NextResponse.json(
-        { error: `Unsupported file type: ${file.type}. Allowed: png, jpg, webp` },
+        { error: `Unsupported file type: ${file.type}. Allowed: png, jpg, webp, gif` },
         { status: 400 }
       );
     }
@@ -59,7 +56,7 @@ export async function POST(req: Request) {
       const n = file.name || "";
       const parts = n.split(".");
       const ext = parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "";
-      if (ext === "png" || ext === "jpg" || ext === "jpeg" || ext === "webp") return ext;
+      if (ext === "png" || ext === "jpg" || ext === "jpeg" || ext === "webp" || ext === "gif") return ext;
       return "";
     })();
 
@@ -68,6 +65,8 @@ export async function POST(req: Request) {
         ? "png"
         : file.type === "image/webp"
         ? "webp"
+        : file.type === "image/gif"
+        ? "gif"
         : "jpg";
 
     const finalExt = extFromName === "jpeg" ? "jpg" : extFromName || ext;
@@ -108,4 +107,3 @@ export async function POST(req: Request) {
     );
   }
 }
-
