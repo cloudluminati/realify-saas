@@ -64,6 +64,29 @@ export async function POST(req: Request) {
 
     const user_id = user.id;
 
+    const fullName =
+      user.user_metadata?.full_name ||
+      user.user_metadata?.name ||
+      user.identities?.[0]?.identity_data?.full_name ||
+      user.identities?.[0]?.identity_data?.name ||
+      null;
+
+    const avatarUrl =
+      user.user_metadata?.avatar_url ||
+      user.user_metadata?.picture ||
+      null;
+
+    await supabaseServer.from("profiles").upsert(
+      {
+        id: user.id,
+        email: user.email ?? null,
+        display_name: fullName,
+        avatar_url: avatarUrl,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "id" }
+    );
+
     try {
       const now = Date.now();
       const lastRequest = lastRequestMap.get(user_id);
