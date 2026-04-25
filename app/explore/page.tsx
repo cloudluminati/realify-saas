@@ -7,7 +7,9 @@ export default function ExplorePage() {
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState<any | null>(null);
   const [likes, setLikes] = useState<Record<string, number>>({});
+  const [likedByUser, setLikedByUser] = useState<Record<string, boolean>>({});
   const [sort, setSort] = useState("new");
+  const [likeLoading, setLikeLoading] = useState<Record<string, boolean>>({});
 
   async function loadImages(sortType: string) {
     setLoading(true);
@@ -43,9 +45,20 @@ export default function ExplorePage() {
 
           if (likeData?.counts) {
             setLikes(likeData.counts);
+          } else {
+            setLikes({});
           }
+
+          const likedMap: Record<string, boolean> = {};
+          if (Array.isArray(likeData?.liked_ids)) {
+            likeData.liked_ids.forEach((id: string) => {
+              likedMap[id] = true;
+            });
+          }
+          setLikedByUser(likedMap);
         } else {
           setLikes({});
+          setLikedByUser({});
         }
       }
     } catch {}
@@ -54,20 +67,50 @@ export default function ExplorePage() {
   }
 
   async function likeImage(image_id: string) {
+    if (!image_id || likeLoading[image_id]) return;
+
+    setLikeLoading((prev) => ({
+      ...prev,
+      [image_id]: true,
+    }));
+
     try {
-      await fetch("/api/like", {
+      const res = await fetch("/api/like", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ image_id })
+        body: JSON.stringify({ image_id }),
       });
 
-      setLikes((prev) => ({
+      const data = await res.json();
+
+      if (!res.ok) return;
+
+      const nowLiked = !!data.liked;
+
+      setLikedByUser((prev) => ({
         ...prev,
-        [image_id]: (prev[image_id] || 0) + 1
+        [image_id]: nowLiked,
       }));
-    } catch {}
+
+      setLikes((prev) => {
+        const currentCount = prev[image_id] || 0;
+
+        return {
+          ...prev,
+          [image_id]: nowLiked
+            ? currentCount + 1
+            : Math.max(0, currentCount - 1),
+        };
+      });
+    } catch {
+    } finally {
+      setLikeLoading((prev) => ({
+        ...prev,
+        [image_id]: false,
+      }));
+    }
   }
 
   function remixPrompt(prompt: string) {
@@ -177,31 +220,19 @@ export default function ExplorePage() {
         </p>
 
         <div style={{ marginTop: 20, marginBottom: 4, display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button
-            onClick={() => setSort("following")}
-            style={pillButton}
-          >
+          <button onClick={() => setSort("following")} style={pillButton}>
             Following
           </button>
 
-          <button
-            onClick={() => setSort("trending")}
-            style={pillButton}
-          >
+          <button onClick={() => setSort("trending")} style={pillButton}>
             Trending
           </button>
 
-          <button
-            onClick={() => setSort("new")}
-            style={pillButton}
-          >
+          <button onClick={() => setSort("new")} style={pillButton}>
             Newest
           </button>
 
-          <button
-            onClick={() => setSort("liked")}
-            style={pillButton}
-          >
+          <button onClick={() => setSort("liked")} style={pillButton}>
             Most Liked
           </button>
         </div>
@@ -234,23 +265,26 @@ export default function ExplorePage() {
                 width: "100%",
                 objectFit: "cover",
                 cursor: "pointer",
-                display: "block"
+                display: "block",
               }}
             />
 
             <div className="hover-actions">
               <button
                 onClick={() => likeImage(img.id)}
+                disabled={!!likeLoading[img.id]}
                 style={{
                   padding: "6px 10px",
                   borderRadius: 6,
                   border: "1px solid #ccc",
-                  background: "#e63946",
+                  background: likedByUser[img.id] ? "#c1121f" : "#e63946",
                   color: "#fff",
-                  fontSize: 12
+                  fontSize: 12,
+                  opacity: likeLoading[img.id] ? 0.7 : 1,
+                  cursor: likeLoading[img.id] ? "not-allowed" : "pointer",
                 }}
               >
-                ❤️ {likes[img.id] || 0}
+                {likedByUser[img.id] ? "💔" : "❤️"} {likes[img.id] || 0}
               </button>
 
               <button
@@ -261,7 +295,7 @@ export default function ExplorePage() {
                   border: "1px solid #ccc",
                   background: "#111",
                   color: "#fff",
-                  fontSize: 12
+                  fontSize: 12,
                 }}
               >
                 Remix
@@ -275,7 +309,7 @@ export default function ExplorePage() {
                   border: "1px solid #ccc",
                   background: "#457b9d",
                   color: "#fff",
-                  fontSize: 12
+                  fontSize: 12,
                 }}
               >
                 Share
@@ -291,7 +325,7 @@ export default function ExplorePage() {
                   background: "#111",
                   color: "#fff",
                   fontSize: 12,
-                  textDecoration: "none"
+                  textDecoration: "none",
                 }}
               >
                 Download
@@ -312,7 +346,7 @@ export default function ExplorePage() {
             alignItems: "center",
             justifyContent: "center",
             zIndex: 1000,
-            padding: 20
+            padding: 20,
           }}
         >
           <div
@@ -322,14 +356,14 @@ export default function ExplorePage() {
               width: "100%",
               background: "#111",
               padding: 20,
-              borderRadius: 10
+              borderRadius: 10,
             }}
           >
             <img
               src={selectedImage.image_url}
               style={{
                 width: "100%",
-                borderRadius: 8
+                borderRadius: 8,
               }}
             />
 
@@ -338,7 +372,7 @@ export default function ExplorePage() {
                 style={{
                   marginTop: 10,
                   fontSize: 14,
-                  color: "#ccc"
+                  color: "#ccc",
                 }}
               >
                 {selectedImage.prompt}
@@ -346,6 +380,21 @@ export default function ExplorePage() {
             )}
 
             <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button
+                onClick={() => likeImage(selectedImage.id)}
+                disabled={!!likeLoading[selectedImage.id]}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: 6,
+                  border: "1px solid #444",
+                  background: likedByUser[selectedImage.id] ? "#c1121f" : "#222",
+                  color: "#fff",
+                  opacity: likeLoading[selectedImage.id] ? 0.7 : 1,
+                }}
+              >
+                {likedByUser[selectedImage.id] ? "Unlike" : "Like"} ({likes[selectedImage.id] || 0})
+              </button>
+
               <button
                 onClick={() => remixPrompt(selectedImage.prompt)}
                 style={{
@@ -405,7 +454,7 @@ export default function ExplorePage() {
                   borderRadius: 6,
                   border: "1px solid #444",
                   background: "#222",
-                  color: "#fff"
+                  color: "#fff",
                 }}
               >
                 Close

@@ -63,6 +63,20 @@ export default function Page() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const params = new URLSearchParams(window.location.search);
+    const promptFromUrl = params.get('prompt');
+
+    if (promptFromUrl) {
+      setPrompt(promptFromUrl);
+
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, '', cleanUrl);
+    }
+  }, []);
+
+  useEffect(() => {
     async function loadRecent() {
       if (!user) {
         setRecentImages([]);
