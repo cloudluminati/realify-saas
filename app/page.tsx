@@ -476,23 +476,23 @@ export default function Page() {
     <>
       <header
         style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
+          position: 'relative',
+          top: 'auto',
+          left: 'auto',
+          right: 'auto',
           zIndex: 50,
           background: 'rgba(0, 0, 0, 0.92)',
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
           borderBottom: '1px solid rgba(255,255,255,0.08)',
+          marginBottom: 8,
         }}
       >
         <div
           style={{
             maxWidth: 1400,
             margin: '0 auto',
-            padding: '0 40px',
-            height: '100%',
+            padding: '10px 40px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -619,7 +619,7 @@ export default function Page() {
         </div>
       </header>
 
-      <main style={{ padding: '98px 40px 60px', maxWidth: 1400, margin: '0 auto' }}>
+      <main style={{ padding: '8px 40px 60px', maxWidth: 1400, margin: '0 auto' }}>
         <div
           style={{
             ...cardStyle,
@@ -1173,7 +1173,38 @@ export default function Page() {
               gap: 28,
             }}
           >
-            <div />
+            <div>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  marginBottom: 14,
+                }}
+              >
+                <img
+                  src="/realify-logo.png"
+                  alt="Realify logo"
+                  style={{
+                    width: 34,
+                    height: 34,
+                    objectFit: 'contain',
+                    display: 'block',
+                    borderRadius: 8,
+                  }}
+                />
+                <div
+                  style={{
+                    color: 'white',
+                    fontSize: 22,
+                    fontWeight: 800,
+                    letterSpacing: '-0.03em',
+                  }}
+                >
+                  Realify
+                </div>
+              </div>
+            </div>
 
             <div>
               <div

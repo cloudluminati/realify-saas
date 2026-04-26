@@ -20,38 +20,24 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable}`}
         style={{ position: "relative" }}
       >
-        {/* MATRIX BACKGROUND */}
         <MatrixRain />
 
-        {/* MAIN WRAPPER */}
         <div
           style={{
             position: "relative",
             zIndex: 10,
-            padding: "40px 20px",
-            maxWidth: "1200px",
-            margin: "0 auto",
           }}
         >
-          {/* HEADER */}
-          <div style={{ marginBottom: "20px" }}>
-            <h1 style={{ fontSize: "36px", fontWeight: 700 }}>
-              Realify
-            </h1>
-          </div>
-
-          {/* CONTENT (NO FORCED GRID ANYMORE) */}
           {children}
-
         </div>
       </body>
     </html>
