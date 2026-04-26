@@ -1248,6 +1248,20 @@ export default function Page() {
                   Affiliate Program
                 </button>
 
+                <button
+                  onClick={() => (window.location.href = "/legal/privacy")}
+                  style={footerLinkStyle}
+                >
+                  Privacy Policy
+                </button>
+
+                <button
+                  onClick={() => (window.location.href = "/legal/terms")}
+                  style={footerLinkStyle}
+                >
+                  Terms of Service
+                </button>
+
                 <button onClick={() => (window.location.href = "/legal")} style={footerLinkStyle}>
                   Legal
                 </button>
