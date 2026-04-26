@@ -415,6 +415,7 @@ export default function Page() {
     fontWeight: 600,
     cursor: 'pointer',
     textAlign: 'left',
+    textDecoration: 'none',
   };
 
   const cardStyle: React.CSSProperties = {
@@ -1241,30 +1242,21 @@ export default function Page() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <button
-                  onClick={() => (window.location.href = "/affiliate-program")}
-                  style={footerLinkStyle}
-                >
+                <a href="/affiliate-program" style={footerLinkStyle}>
                   Affiliate Program
-                </button>
+                </a>
 
-                <button
-                  onClick={() => (window.location.href = "/legal/privacy")}
-                  style={footerLinkStyle}
-                >
+                <a href="/legal/privacy" style={footerLinkStyle}>
                   Privacy Policy
-                </button>
+                </a>
 
-                <button
-                  onClick={() => (window.location.href = "/legal/terms")}
-                  style={footerLinkStyle}
-                >
+                <a href="/legal/terms" style={footerLinkStyle}>
                   Terms of Service
-                </button>
+                </a>
 
-                <button onClick={() => (window.location.href = "/legal")} style={footerLinkStyle}>
+                <a href="/legal" style={footerLinkStyle}>
                   Legal
-                </button>
+                </a>
               </div>
             </div>
           </div>
