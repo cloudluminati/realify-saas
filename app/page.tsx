@@ -459,8 +459,8 @@ export default function Page() {
     error === 'Something went wrong. Try again.' ||
     error === 'Only image files are allowed for reference uploads.';
 
-  const modelLabel = model === 'nano' ? 'Nano' : 'GPT Image';
-  const modelModeLabel = model === 'nano' ? 'Best for speed' : 'Best for quality';
+  const modelLabel = model === 'nano' ? 'Nano' : 'ROBO';
+  const modelModeLabel = model === 'nano' ? 'Fast generation' : 'Higher quality results';
 
   const referenceCount = images.length;
   const referenceLabel =
@@ -481,7 +481,7 @@ export default function Page() {
           left: 0,
           right: 0,
           zIndex: 50,
-          background: 'rgba(0, 0, 0, 0.72)',
+          background: 'rgba(0, 0, 0, 0.92)',
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
           borderBottom: '1px solid rgba(255,255,255,0.08)',
@@ -491,15 +491,16 @@ export default function Page() {
           style={{
             maxWidth: 1400,
             margin: '0 auto',
-            padding: '20px 40px',
+            padding: '0 40px',
+            height: '100%',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: 24,
-            flexWrap: 'wrap',
+            flexWrap: 'nowrap',
           }}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
             <div
               style={{
                 display: 'flex',
@@ -511,8 +512,8 @@ export default function Page() {
                 src="/realify-logo.png"
                 alt="Realify logo"
                 style={{
-                  width: 64,
-                  height: 64,
+                  width: 48,
+                  height: 48,
                   objectFit: 'contain',
                   display: 'block',
                   borderRadius: 10,
@@ -522,7 +523,7 @@ export default function Page() {
               <div
                 style={{
                   color: 'white',
-                  fontSize: 46,
+                  fontSize: 32,
                   fontWeight: 800,
                   letterSpacing: '-0.04em',
                   lineHeight: 1,
@@ -534,10 +535,11 @@ export default function Page() {
 
             <div
               style={{
-                color: 'rgba(255,255,255,0.64)',
-                fontSize: 14,
+                color: 'rgba(255,255,255,0.62)',
+                fontSize: 12,
                 fontWeight: 600,
                 paddingLeft: 2,
+                marginTop: -4,
               }}
             >
               {userLabel || 'Sign in with Google to generate and save images.'}
@@ -549,7 +551,7 @@ export default function Page() {
               position: 'relative',
               display: 'flex',
               gap: 12,
-              flexWrap: 'wrap',
+              flexWrap: 'nowrap',
               justifyContent: 'flex-end',
               alignItems: 'center',
             }}
@@ -617,12 +619,12 @@ export default function Page() {
         </div>
       </header>
 
-      <main style={{ padding: '176px 40px 60px', maxWidth: 1400, margin: '0 auto' }}>
+      <main style={{ padding: '98px 40px 60px', maxWidth: 1400, margin: '0 auto' }}>
         <div
           style={{
             ...cardStyle,
-            padding: '20px 24px',
-            marginBottom: 22,
+            padding: '16px 20px',
+            marginBottom: 12,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
@@ -856,7 +858,7 @@ export default function Page() {
                   }}
                 >
                   <option value="nano">Nano</option>
-                  <option value="gpt">GPT</option>
+                  <option value="gpt">ROBO</option>
                 </select>
 
                 {model === 'nano' ? (
@@ -1171,38 +1173,7 @@ export default function Page() {
               gap: 28,
             }}
           >
-            <div>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  marginBottom: 14,
-                }}
-              >
-                <img
-                  src="/realify-logo.png"
-                  alt="Realify logo"
-                  style={{
-                    width: 34,
-                    height: 34,
-                    objectFit: 'contain',
-                    display: 'block',
-                    borderRadius: 8,
-                  }}
-                />
-                <div
-                  style={{
-                    color: 'white',
-                    fontSize: 22,
-                    fontWeight: 800,
-                    letterSpacing: '-0.03em',
-                  }}
-                >
-                  Realify
-                </div>
-              </div>
-            </div>
+            <div />
 
             <div>
               <div
