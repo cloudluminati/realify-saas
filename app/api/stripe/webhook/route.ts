@@ -121,6 +121,50 @@ async function addUnitsToUser(
   });
 }
 
+async function activateInitialSubscriptionIfNeeded(
+  userId: string,
+  plan: string,
+  stripeCustomerId: string
+) {
+  const units = PLAN_UNITS[plan];
+  if (!units) return;
+
+  const existingSub = await getSubscriptionRowByUser(userId);
+
+  if (existingSub) {
+    const currentTotal = Number(existingSub.units_total || 0);
+    const currentRemaining = Number(existingSub.units_remaining || 0);
+
+    if (existingSub.status === "active" && currentTotal > 0) {
+      console.log("Initial subscription already active, skipping duplicate grant:", userId);
+      return;
+    }
+
+    await supabase
+      .from("subscriptions")
+      .update({
+        plan,
+        status: "active",
+        stripe_customer_id: stripeCustomerId,
+        units_total: currentTotal > 0 ? currentTotal : units,
+        units_remaining: currentRemaining > 0 ? currentRemaining : units,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", userId);
+
+    return;
+  }
+
+  await supabase.from("subscriptions").insert({
+    user_id: userId,
+    stripe_customer_id: stripeCustomerId,
+    plan,
+    status: "active",
+    units_total: units,
+    units_remaining: units,
+  });
+}
+
 async function getPlanFromInvoice(invoice: Stripe.Invoice) {
   const line = invoice.lines?.data?.[0] as any;
   const priceId =
@@ -183,8 +227,9 @@ export async function POST(req: Request) {
     const customerId =
       typeof session.customer === "string" ? session.customer : undefined;
 
-    if (purchaseType === "subscription" && userId && customerId) {
-      await linkCustomerToUser(userId, customerId, plan || undefined);
+    if (purchaseType === "subscription" && userId && customerId && plan) {
+      await linkCustomerToUser(userId, customerId, plan);
+      await activateInitialSubscriptionIfNeeded(userId, plan, customerId);
     }
 
     if (
@@ -216,11 +261,23 @@ export async function POST(req: Request) {
     const existingSub = await getSubscriptionRowByCustomer(customerId);
     const userId = existingSub?.user_id;
 
+    const billingReason = (invoice as any).billing_reason;
+
     if (userId) {
-      await addUnitsToUser(userId, units, {
-        plan,
-        stripeCustomerId: customerId,
-      });
+      const existingSub = await getSubscriptionRowByUser(userId);
+      const alreadyGrantedInitial =
+        billingReason === "subscription_create" &&
+        existingSub?.status === "active" &&
+        Number(existingSub?.units_total || 0) > 0;
+
+      if (alreadyGrantedInitial) {
+        console.log("Skipping duplicate initial subscription invoice grant:", invoice.id);
+      } else {
+        await addUnitsToUser(userId, units, {
+          plan,
+          stripeCustomerId: customerId,
+        });
+      }
     } else {
       console.warn(
         "invoice.payment_succeeded received but no local subscription row matched stripe_customer_id:",
